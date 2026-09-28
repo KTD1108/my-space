@@ -50,7 +50,7 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       // Loại bỏ HTML tags cơ bản để lấy text
       contentToSummarize = html.replace(/<[^>]*>?/gm, ' ').substring(0, 15000); 
     } else if (docType === 'pdf') {
-      const { supabaseAdmin } = await import('@/lib/supabase');
+      const { supabaseAdmin } = await import('@/lib/supabase-server');
       const pdfParse = (await import('pdf-parse')).default;
       
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
@@ -62,7 +62,7 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       const parsed = await pdfParse(Buffer.from(buffer));
       contentToSummarize = parsed.text.substring(0, 15000); 
     } else if (docType === 'docx') {
-      const { supabaseAdmin } = await import('@/lib/supabase');
+      const { supabaseAdmin } = await import('@/lib/supabase-server');
       const mammoth = (await import('mammoth')).default;
       
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
@@ -74,7 +74,7 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
       contentToSummarize = result.value.substring(0, 15000);
     } else if (['txt', 'md', 'csv', 'json'].includes(docType?.toLowerCase())) {
-      const { supabaseAdmin } = await import('@/lib/supabase');
+      const { supabaseAdmin } = await import('@/lib/supabase-server');
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
       if (!urlData?.signedUrl) throw new Error("Không thể truy cập file văn bản.");
       
