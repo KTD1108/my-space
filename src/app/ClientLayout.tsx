@@ -2,25 +2,28 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Home, FileText, Music, Image as ImageIcon, Menu, X, LogOut } from "lucide-react";
+import { Home, FileText, Music, Image as ImageIcon, Menu, X, LogOut, User as UserIcon } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 import { logout } from "./login/actions";
-import { createClient } from "@/utils/supabase/client";
+import { getProfileData } from "@/app/actions/data";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [profile, setProfile] = useState<{name: string, avatar: string | null} | null>(null);
 
   useEffect(() => {
-    async function getUser() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserEmail(user.email || "Bạn");
+    async function loadProfile() {
+      try {
+        const data = await getProfileData();
+        if (data) {
+          setProfile(data);
+        }
+      } catch (e) {
+        // Ignored
       }
     }
-    if (pathname !== '/login') getUser();
+    if (pathname !== '/login') loadProfile();
   }, [pathname]);
 
   const navItems = [
@@ -28,6 +31,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: "Kỷ niệm", href: "/gallery", icon: <ImageIcon size={22} /> },
     { name: "Giai điệu", href: "/music", icon: <Music size={22} /> },
     { name: "Học tập", href: "/docs", icon: <FileText size={22} /> },
+    { name: "Trang cá nhân", href: "/profile", icon: <UserIcon size={22} /> },
   ];
 
   if (pathname === "/login") {
@@ -39,9 +43,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  // Tên hiển thị thân thiện (Cắt phần trước @gmail.com)
-  const displayName = userEmail ? userEmail.split('@')[0] : "Bạn";
-  const avatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${displayName}&backgroundColor=ffd5dc,b6e3f4`;
+  const displayName = profile?.name || "Bạn";
+  const avatarUrl = profile?.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${displayName}&backgroundColor=ffd5dc,b6e3f4`;
 
   return (
     <div className="flex h-screen w-full text-slate-700 bg-[#F9FAFB]">
@@ -86,19 +89,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {/* Khu vực Profile dễ thương ở đáy */}
         <div className="p-5 mt-auto">
           <div className="bg-slate-50 border border-slate-100 rounded-3xl p-4 flex flex-col gap-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <img src={avatarUrl} alt="Avatar" className="w-12 h-12 rounded-full shadow-sm bg-white border-2 border-white" />
+            <Link href="/profile" className="flex items-center gap-3 group hover:bg-white p-2 -m-2 rounded-2xl transition-all cursor-pointer">
+              <img src={avatarUrl} alt="Avatar" className="w-12 h-12 rounded-full object-cover shadow-sm bg-white border-2 border-white group-hover:scale-105 transition-transform" />
               <div className="overflow-hidden">
                 <p className="text-xs text-slate-400 font-bold">Chủ nhân</p>
-                <p className="text-sm font-extrabold text-slate-700 truncate capitalize">{displayName}</p>
+                <p className="text-sm font-extrabold text-slate-700 truncate">{displayName}</p>
               </div>
-            </div>
+            </Link>
             <button 
               onClick={() => logout()}
-              className="flex justify-center items-center gap-2 px-4 py-2.5 w-full rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all font-bold text-sm border border-transparent hover:border-red-100"
+              className="flex justify-center items-center gap-2 px-4 py-2.5 w-full rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all font-bold text-sm border border-transparent hover:border-red-100 mt-1"
             >
               <LogOut size={16} />
-              Rời đi
+              Đăng xuất
             </button>
           </div>
         </div>
@@ -110,11 +113,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-6 md:p-12 h-full w-full relative">
-        {/* Decorative background blobs */}
         <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-pink-400/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-[-10%] left-[-5%] w-96 h-96 bg-purple-400/10 rounded-full blur-3xl pointer-events-none"></div>
         
-        <div className="relative z-10">
+        <div className="relative z-10 h-full">
           {children}
         </div>
       </main>

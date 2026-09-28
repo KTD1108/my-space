@@ -19,12 +19,12 @@ export default function Home() {
     else if (hour < 18) setGreeting("Chào buổi chiều");
     else setGreeting("Buổi tối an lành");
 
-    // 2. Lấy tên user
+    // 2. Lấy thông tin user chuẩn
     async function fetchUser() {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getUser();
-      if (data?.user?.email) {
-        setUserName(data.user.email.split('@')[0]);
+      const { getProfileData } = await import('@/app/actions/data');
+      const data = await getProfileData();
+      if (data) {
+        setUserName(data.name);
       }
     }
 

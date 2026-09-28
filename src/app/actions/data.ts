@@ -137,3 +137,31 @@ export async function movePhotoToAlbum(photoId: string, newAlbum: string) {
   const { error } = await supabase.from('photos').update({ album: newAlbum }).eq('id', photoId);
   if (error) throw new Error(error.message);
 }
+
+// ---- API TRANG CÁ NHÂN (PROFILE) ----
+export async function updateProfileMetadata(name: string, avatarPath?: string) {
+  const supabase = await createClient();
+  const updates: any = { display_name: name };
+  if (avatarPath) updates.avatar_url = avatarPath;
+  
+  const { error } = await supabase.auth.updateUser({ data: updates });
+  if (error) throw new Error(error.message);
+}
+
+export async function getProfileData() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  
+  let publicAvatarUrl = null;
+  if (user.user_metadata?.avatar_url) {
+    const { data } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(user.user_metadata.avatar_url, 60 * 60 * 24 * 7);
+    publicAvatarUrl = data?.signedUrl;
+  }
+  
+  return {
+    email: user.email,
+    name: user.user_metadata?.display_name || user.email?.split('@')[0],
+    avatar: publicAvatarUrl
+  };
+}
