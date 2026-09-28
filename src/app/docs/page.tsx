@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Upload, Trash2, ExternalLink, File, FileText, Folder, FolderPlus, FileStack, X, Link as LinkIcon, Share2 } from "lucide-react";
+import { Upload, Trash2, ExternalLink, File, FileText, Folder, FolderPlus, FileStack, X, Link as LinkIcon, Share2, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 import { getDocs, getUploadUrl, addRecord, deleteRecord, getCategories, addCategory, deleteCategory, createShareLink } from "@/app/actions/data";
 
@@ -20,12 +20,29 @@ export default function DocsPage() {
   const [linkTitle, setLinkTitle] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
 
+  // Trạng thái AI Tóm tắt
+  const [summaryModal, setSummaryModal] = useState<{isOpen: boolean, title: string, content: string, loading: boolean}>({isOpen: false, title: '', content: '', loading: false});
+
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => { 
     fetchDocs(); 
     fetchCategories();
   }, []);
+
+  const handleSummary = async (doc: any) => {
+    setSummaryModal({ isOpen: true, title: doc.title, content: doc.ai_summary || '', loading: !doc.ai_summary });
+    if (!doc.ai_summary) {
+      try {
+        const { generateDocSummary } = await import('@/app/actions/ai');
+        const sum = await generateDocSummary(doc.id, doc.type, doc.type === 'link' ? doc.url : doc.url); // doc.url is the path for pdf
+        setSummaryModal(prev => ({ ...prev, content: sum, loading: false }));
+        fetchDocs(); // reload docs to get saved summary
+      } catch (e: any) {
+        setSummaryModal(prev => ({ ...prev, content: 'Lỗi: ' + e.message, loading: false }));
+      }
+    }
+  };
 
   const handleShare = async (id: string, type: 'photo' | 'doc') => {
     const toastId = toast.loading("Đang tạo liên kết chia sẻ...");
@@ -406,6 +423,9 @@ export default function DocsPage() {
                     <td className="p-5 text-slate-400 text-sm font-medium">{new Date(doc.created_at).toLocaleDateString('vi-VN')}</td>
                     <td className="p-5 text-right">
                       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleSummary(doc)} className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-colors" title="AI Tóm tắt">
+                          <Sparkles size={18} />
+                        </button>
                         <a href={doc.publicUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors" title="Xem/Truy cập">
                           <ExternalLink size={18} />
                         </a>
@@ -424,6 +444,36 @@ export default function DocsPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal Tóm tắt AI */}
+      {summaryModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] p-8 w-full max-w-lg shadow-2xl scale-100 animate-in zoom-in-95 max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center">
+                  <Sparkles size={20} />
+                </div>
+                <h3 className="font-extrabold text-slate-800 text-xl truncate max-w-[250px]">{summaryModal.title}</h3>
+              </div>
+              <button onClick={() => setSummaryModal({ ...summaryModal, isOpen: false })} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X size={20} /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto bg-slate-50 rounded-2xl p-6 border border-slate-100 relative">
+              {summaryModal.loading ? (
+                <div className="flex flex-col items-center justify-center py-10 space-y-4">
+                  <Sparkles className="text-emerald-400 animate-pulse" size={40} />
+                  <p className="text-slate-500 font-bold animate-pulse text-sm">Trợ lý AI đang đọc và phân tích...</p>
+                </div>
+              ) : (
+                <div className="text-slate-700 leading-relaxed font-medium whitespace-pre-wrap text-sm">
+                  {summaryModal.content}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -38,3 +38,53 @@ export async function categorizeDoc(docTitle: string) {
     throw new Error(error.message);
   }
 }
+
+export async function generateDocSummary(docId: string, docType: string, docUrl: string) {
+  try {
+    const ai = getAIClient();
+    let contentToSummarize = "";
+
+    if (docType === 'link') {
+      const res = await fetch(docUrl);
+      const html = await res.text();
+      // Loại bỏ HTML tags cơ bản để lấy text
+      contentToSummarize = html.replace(/<[^>]*>?/gm, ' ').substring(0, 15000); 
+    } else if (docType === 'pdf') {
+      const { supabaseAdmin } = await import('@/lib/supabase');
+      const pdfParse = (await import('pdf-parse')).default;
+      
+      const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
+      if (!urlData?.signedUrl) throw new Error("Không thể truy cập file PDF.");
+      
+      const res = await fetch(urlData.signedUrl);
+      const buffer = await res.arrayBuffer();
+      
+      const parsed = await pdfParse(Buffer.from(buffer));
+      contentToSummarize = parsed.text.substring(0, 15000); // Lấy tối đa 15000 ký tự đầu tiên
+    } else {
+      throw new Error("Trợ lý AI hiện tại chỉ hỗ trợ tóm tắt Link Website và file PDF.");
+    }
+
+    if (!contentToSummarize || contentToSummarize.trim().length < 50) {
+      throw new Error("Nội dung tài liệu quá ngắn hoặc bị bảo mật, AI không thể đọc được.");
+    }
+
+    const prompt = `Hãy đóng vai một chuyên gia phân tích. Tóm tắt nội dung tài liệu sau đây một cách súc tích, dễ hiểu, bằng tiếng Việt (khoảng 3-5 câu). Trình bày rõ ràng các ý chính:\n\n${contentToSummarize}`;
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    
+    const summary = response.text.trim();
+    
+    // Lưu lại vào database để lần sau không cần gọi AI nữa
+    const { createClient } = await import('@/lib/supabase-server');
+    const supabase = await createClient();
+    await supabase.from('documents').update({ ai_summary: summary }).eq('id', docId);
+
+    return summary;
+  } catch (error: any) {
+    throw new Error(error.message);
+  }
+}
