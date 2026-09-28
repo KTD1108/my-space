@@ -1,5 +1,8 @@
 "use server"
 import { GoogleGenAI } from '@google/genai';
+import { supabaseAdmin, createClient } from '@/lib/supabase-server';
+import pdfParse from 'pdf-parse';
+import mammoth from 'mammoth';
 
 function getAIClient() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -18,7 +21,7 @@ export async function guessMusicGenre(songTitle: string) {
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return response.text.trim().replace(/[\[\]"']/g, ''); // Xóa các dấu ngoặc nếu AI lỡ trả về
+    return response.text.trim().replace(/[\[\]"']/g, ''); 
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -47,13 +50,8 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
     if (docType === 'link') {
       const res = await fetch(docUrl);
       const html = await res.text();
-      // Loại bỏ HTML tags cơ bản để lấy text
       contentToSummarize = html.replace(/<[^>]*>?/gm, ' ').substring(0, 15000); 
     } else if (docType === 'pdf') {
-      const { supabaseAdmin } = await import('@/lib/supabase-server');
-      const pdfParseModule = await import('pdf-parse');
-      const pdfParse = pdfParseModule.default || pdfParseModule;
-      
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
       if (!urlData?.signedUrl) throw new Error("Không thể truy cập file PDF.");
       
@@ -63,10 +61,6 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       const parsed = await pdfParse(Buffer.from(buffer));
       contentToSummarize = parsed.text.substring(0, 15000); 
     } else if (docType === 'docx') {
-      const { supabaseAdmin } = await import('@/lib/supabase-server');
-      const mammothModule = await import('mammoth');
-      const mammoth = mammothModule.default || mammothModule;
-      
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
       if (!urlData?.signedUrl) throw new Error("Không thể truy cập file Word.");
       
@@ -76,7 +70,6 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
       contentToSummarize = result.value.substring(0, 15000);
     } else if (['txt', 'md', 'csv', 'json'].includes(docType?.toLowerCase())) {
-      const { supabaseAdmin } = await import('@/lib/supabase-server');
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
       if (!urlData?.signedUrl) throw new Error("Không thể truy cập file văn bản.");
       
@@ -100,7 +93,6 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
     const summary = response.text.trim();
     
     // Lưu lại vào database để lần sau không cần gọi AI nữa
-    const { createClient } = await import('@/lib/supabase-server');
     const supabase = await createClient();
     await supabase.from('documents').update({ ai_summary: summary }).eq('id', docId);
 
