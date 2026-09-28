@@ -51,7 +51,8 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       contentToSummarize = html.replace(/<[^>]*>?/gm, ' ').substring(0, 15000); 
     } else if (docType === 'pdf') {
       const { supabaseAdmin } = await import('@/lib/supabase-server');
-      const pdfParse = (await import('pdf-parse')).default;
+      const pdfParseModule = await import('pdf-parse');
+      const pdfParse = pdfParseModule.default || pdfParseModule;
       
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
       if (!urlData?.signedUrl) throw new Error("Không thể truy cập file PDF.");
@@ -63,7 +64,8 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       contentToSummarize = parsed.text.substring(0, 15000); 
     } else if (docType === 'docx') {
       const { supabaseAdmin } = await import('@/lib/supabase-server');
-      const mammoth = (await import('mammoth')).default;
+      const mammothModule = await import('mammoth');
+      const mammoth = mammothModule.default || mammothModule;
       
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
       if (!urlData?.signedUrl) throw new Error("Không thể truy cập file Word.");
