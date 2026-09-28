@@ -1,28 +1,54 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
-  // Lấy cookie xác thực
-  const authCookie = request.cookies.get('site_auth')
-  const isLoginPage = request.nextUrl.pathname.startsWith('/login')
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({
+    request: { headers: request.headers },
+  })
 
-  // Nếu có cookie 'authenticated' thì được coi là đã đăng nhập
-  const isAuthenticated = authCookie?.value === 'authenticated'
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options })
+          supabaseResponse = NextResponse.next({
+            request: { headers: request.headers },
+          })
+          supabaseResponse.cookies.set({ name, value, ...options })
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({ name, value: '', ...options })
+          supabaseResponse = NextResponse.next({
+            request: { headers: request.headers },
+          })
+          supabaseResponse.cookies.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
 
-  // Chưa đăng nhập mà muốn vào các trang bên trong -> Đẩy ra trang login
-  if (!isAuthenticated && !isLoginPage) {
+  // Kiểm tra phiên đăng nhập thực sự từ Supabase
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAuthPage = request.nextUrl.pathname.startsWith('/login')
+
+  // Nếu chưa đăng nhập mà muốn vào web -> Đẩy ra trang Đăng nhập
+  if (!user && !isAuthPage) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
-
-  // Đã đăng nhập mà lại vào trang login -> Đẩy vào trang chủ
-  if (isAuthenticated && isLoginPage) {
+  
+  // Đã đăng nhập mà cố vào trang Đăng nhập -> Đẩy về Trang chủ
+  if (user && isAuthPage) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  return NextResponse.next()
+  return supabaseResponse
 }
 
-// Chỉ áp dụng middleware này cho các trang giao diện, bỏ qua API và file hệ thống
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 }

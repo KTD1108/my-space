@@ -1,71 +1,80 @@
 "use server"
-import { cookies } from 'next/headers'
-import { supabaseAdmin } from '@/lib/supabase-server'
+import { createClient } from '@/utils/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase-server' // Vẫn giữ để tạo link tải xuống an toàn nếu cần, tuy nhiên dùng client là tốt nhất
 
-// 1. Hàm kiểm tra bảo mật: Chỉ ai có mã PIN mới được chạy các lệnh bên dưới
-async function checkAuth() {
-  const cookieStore = await cookies()
-  if (cookieStore.get('site_auth')?.value !== 'authenticated') {
-    throw new Error('Từ chối truy cập: Bạn chưa nhập mã PIN hợp lệ.')
-  }
+// 1. Hàm gác cổng tự động lấy thông tin người dùng đang đăng nhập
+async function getUser() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Từ chối truy cập: Bạn chưa đăng nhập.')
+  return user
 }
 
-// 2. Tạo link tải file tạm thời (Signed URL) cho Trình duyệt
+// 2. Tạo link upload riêng cho Từng người dùng
 export async function getUploadUrl(path: string) {
-  await checkAuth();
-  const { data, error } = await supabaseAdmin.storage.from('personal_files').createSignedUploadUrl(path);
+  const user = await getUser();
+  // Bắt buộc đẩy file vào đúng thư mục có tên là Mã ID của người đó
+  const fullPath = `${user.id}/${path}`;
+  
+  const supabase = await createClient();
+  const { data, error } = await supabaseAdmin.storage.from('personal_files').createSignedUploadUrl(fullPath);
   if (error) throw new Error(error.message);
-  return data.signedUrl;
+  return { signedUrl: data.signedUrl, fullPath };
 }
 
-// 3. Hàm lưu thông tin file vào CSDL
+// 3. Hàm lưu thông tin file (Tự động gán user_id)
 export async function addRecord(table: string, payload: any) {
-  await checkAuth();
-  const { error } = await supabaseAdmin.from(table).insert([payload]);
+  const user = await getUser();
+  const supabase = await createClient();
+  // Khi insert, tự chèn thêm user_id vào
+  const { error } = await supabase.from(table).insert([{ ...payload, user_id: user.id }]);
   if (error) throw new Error(error.message);
 }
 
-// 4. Hàm xóa file và xóa thông tin
+// 4. Hàm xóa file
 export async function deleteRecord(table: string, id: string, path: string) {
-  await checkAuth();
+  const supabase = await createClient();
+  
+  // Xóa vật lý
   await supabaseAdmin.storage.from('personal_files').remove([path]);
-  await supabaseAdmin.from(table).delete().eq('id', id);
+  
+  // Xóa Database (RLS sẽ tự chặn nếu không phải file của user đó)
+  await supabase.from(table).delete().eq('id', id);
 }
 
-// 5. Các hàm lấy dữ liệu kèm link an toàn
+// 5. Các hàm lấy dữ liệu (Supabase RLS sẽ TỰ ĐỘNG CHỈ TRẢ VỀ DATA CỦA NGƯỜI ĐĂNG NHẬP)
 async function generateSignedUrl(path: string) {
-  // Vì bucket đã bị khóa, ta phải tạo link dùng 1 lần (có hạn 24h) để trình duyệt xem được
   const { data } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(path, 60 * 60 * 24);
   return data?.signedUrl || '';
 }
 
 export async function getPhotos() {
-  await checkAuth();
-  const { data } = await supabaseAdmin.from('photos').select('*').order('created_at', { ascending: false });
+  const supabase = await createClient();
+  const { data } = await supabase.from('photos').select('*').order('created_at', { ascending: false });
   if (!data) return [];
   return Promise.all(data.map(async (p) => ({ ...p, publicUrl: await generateSignedUrl(p.url) })));
 }
 
 export async function getSongs() {
-  await checkAuth();
-  const { data } = await supabaseAdmin.from('songs').select('*').order('created_at', { ascending: false });
+  const supabase = await createClient();
+  const { data } = await supabase.from('songs').select('*').order('created_at', { ascending: false });
   if (!data) return [];
   return Promise.all(data.map(async (s) => ({ ...s, publicUrl: await generateSignedUrl(s.url) })));
 }
 
 export async function getDocs() {
-  await checkAuth();
-  const { data } = await supabaseAdmin.from('documents').select('*').order('created_at', { ascending: false });
+  const supabase = await createClient();
+  const { data } = await supabase.from('documents').select('*').order('created_at', { ascending: false });
   if (!data) return [];
   return Promise.all(data.map(async (d) => ({ ...d, publicUrl: await generateSignedUrl(d.url) })));
 }
 
 export async function getDashboardStats() {
-  await checkAuth();
+  const supabase = await createClient();
   const [docsData, songsData, photosData] = await Promise.all([
-    supabaseAdmin.from('documents').select('id', { count: 'exact' }),
-    supabaseAdmin.from('songs').select('id', { count: 'exact' }),
-    supabaseAdmin.from('photos').select('id', { count: 'exact' })
+    supabase.from('documents').select('id', { count: 'exact', head: true }),
+    supabase.from('songs').select('id', { count: 'exact', head: true }),
+    supabase.from('photos').select('id', { count: 'exact', head: true })
   ]);
   
   return {

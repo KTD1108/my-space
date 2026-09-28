@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Home, FileText, Music, Image as ImageIcon, Menu, X } from "lucide-react";
+import { Home, FileText, Music, Image as ImageIcon, Menu, X, LogOut } from "lucide-react";
 import { Toaster } from "react-hot-toast";
+import { logout } from "./login/actions";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -44,7 +45,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <h2 className="text-2xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
             MY SPACE
           </h2>
-          <p className="text-xs text-slate-500 mt-2 font-medium tracking-wide uppercase">Không gian riêng tư</p>
+          <p className="text-xs text-slate-500 mt-2 font-medium tracking-wide uppercase">Dành cho nhiều người dùng</p>
         </div>
         
         <nav className="flex-1 px-4 space-y-2 mt-6">
@@ -64,7 +65,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           })}
         </nav>
         
-        <div className="p-6 text-xs text-slate-500 text-center font-medium">
+        <div className="p-4 mt-auto border-t border-slate-800 mx-4 mb-2">
+          <button 
+            onClick={async () => {
+              await logout();
+            }}
+            className="flex items-center gap-4 px-5 py-3 w-full rounded-xl text-red-400 hover:text-white hover:bg-red-500/20 transition-all font-medium"
+          >
+            <LogOut size={20} />
+            Đăng xuất
+          </button>
+        </div>
+        
+        <div className="p-4 text-xs text-slate-500 text-center font-medium mb-2">
           &copy; {new Date().getFullYear()} Coded with ❤️
         </div>
       </aside>

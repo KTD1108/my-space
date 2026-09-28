@@ -1,20 +1,46 @@
-"use server"
-import { cookies } from "next/headers"
+'use server'
 
-export async function verifyPin(pin: string) {
-  // Lấy mã PIN bí mật từ biến môi trường (không lộ ra trình duyệt)
-  const validPin = process.env.SITE_PIN;
+import { createClient } from '@/utils/supabase/server'
+import { redirect } from 'next/navigation'
+
+export async function login(formData: FormData) {
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
   
-  if (validPin && pin === validPin) {
-    const cookieStore = await cookies();
-    cookieStore.set('site_auth', 'authenticated', { 
-      maxAge: 2592000, 
-      path: '/',
-      httpOnly: true, // Bảo mật chống XSS
-      secure: process.env.NODE_ENV === 'production'
-    });
-    return { success: true };
+  const supabase = await createClient()
+  
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  if (error) {
+    return { success: false, error: error.message }
   }
+
+  return { success: true }
+}
+
+export async function signup(formData: FormData) {
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
   
-  return { success: false };
+  const supabase = await createClient()
+  
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+  })
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true }
+}
+
+export async function logout() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  redirect('/login')
 }
