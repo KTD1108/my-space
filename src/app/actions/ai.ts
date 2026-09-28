@@ -20,7 +20,7 @@ export async function guessMusicGenre(songTitle: string) {
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return response.text.trim().replace(/[\[\]"']/g, ''); 
+    return (response.text || '').trim().replace(/[\[\]"']/g, ''); 
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -35,7 +35,7 @@ export async function categorizeDoc(docTitle: string) {
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return response.text.trim().replace(/[\[\]"']/g, '');
+    return (response.text || '').trim().replace(/[\[\]"']/g, '');
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -91,7 +91,7 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       contents: prompt,
     });
     
-    const summary = response.text.trim();
+    const summary = (response.text || '').trim();
     
     // Lưu lại vào database để lần sau không cần gọi AI nữa
     const supabase = await createClient();
