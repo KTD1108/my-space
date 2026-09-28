@@ -1,6 +1,7 @@
 "use server"
 import { GoogleGenAI } from '@google/genai';
-import { supabaseAdmin, createClient } from '@/lib/supabase-server';
+import { supabaseAdmin } from '@/lib/supabase-server';
+import { createClient } from '@/utils/supabase/server';
 import pdfParse from 'pdf-parse';
 import mammoth from 'mammoth';
 
