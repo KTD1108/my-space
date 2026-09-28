@@ -11,7 +11,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [profile, setProfile] = useState<{name: string, avatar: string | null, email?: string} | null>(null);
+  const [profile, setProfile] = useState<{name: string, avatar?: string | null, email?: string} | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
