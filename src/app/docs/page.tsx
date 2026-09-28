@@ -1,25 +1,24 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Upload, Trash2, ExternalLink, File, FileText, Folder, BookOpen, Calculator, Code, Globe, FileStack } from "lucide-react";
+import { Upload, Trash2, ExternalLink, File, FileText, Folder, FolderPlus, FileStack, X } from "lucide-react";
 import toast from "react-hot-toast";
-import { getDocs, getUploadUrl, addRecord, deleteRecord } from "@/app/actions/data";
-
-const CATEGORIES = [
-  { id: 'Tất cả', name: 'Tất cả tài liệu', icon: <FileStack size={18} /> },
-  { id: 'Toán học', name: 'Toán học', icon: <Calculator size={18} /> },
-  { id: 'Lập trình', name: 'Lập trình', icon: <Code size={18} /> },
-  { id: 'Ngoại ngữ', name: 'Ngoại ngữ', icon: <Globe size={18} /> },
-  { id: 'Chuyên ngành', name: 'Chuyên ngành', icon: <BookOpen size={18} /> },
-  { id: 'Chung', name: 'Chung', icon: <Folder size={18} /> },
-];
+import { getDocs, getUploadUrl, addRecord, deleteRecord, getCategories, addCategory, deleteCategory } from "@/app/actions/data";
 
 export default function DocsPage() {
   const [docs, setDocs] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
+  
   const [activeCategory, setActiveCategory] = useState('Tất cả');
   const [uploadCategory, setUploadCategory] = useState('Chung');
+  
+  const [isAddingCat, setIsAddingCat] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
 
-  useEffect(() => { fetchDocs(); }, []);
+  useEffect(() => { 
+    fetchDocs(); 
+    fetchCategories();
+  }, []);
 
   const fetchDocs = async () => {
     try {
@@ -27,6 +26,51 @@ export default function DocsPage() {
       setDocs(data);
     } catch (e: any) {
       toast.error(e.message);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const data = await getCategories();
+      setCategories(data);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    if (newCatName.trim() === 'Chung' || newCatName.trim() === 'Tất cả') {
+      toast.error("Tên chủ đề này đã được hệ thống giữ lại.");
+      return;
+    }
+    
+    const loadingToast = toast.loading("Đang tạo chủ đề...");
+    try {
+      await addCategory(newCatName.trim());
+      toast.success("Tạo thành công!", { id: loadingToast });
+      setNewCatName('');
+      setIsAddingCat(false);
+      fetchCategories();
+    } catch (error: any) {
+      toast.error(error.message, { id: loadingToast });
+    }
+  };
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    if (!confirm(`Bạn có chắc muốn xóa chủ đề "${name}"? Các tài liệu bên trong sẽ được dời về mục Chung.`)) return;
+    
+    const loadingToast = toast.loading("Đang xóa...");
+    try {
+      await deleteCategory(id, name);
+      toast.success("Đã xóa chủ đề!", { id: loadingToast });
+      if (activeCategory === name) setActiveCategory('Tất cả');
+      if (uploadCategory === name) setUploadCategory('Chung');
+      fetchDocs();
+      fetchCategories();
+    } catch (error: any) {
+      toast.error(error.message, { id: loadingToast });
     }
   };
 
@@ -48,9 +92,8 @@ export default function DocsPage() {
         body: file,
         headers: { 'Content-Type': file.type || 'application/octet-stream' }
       });
-      if (!res.ok) throw new Error("Tải lên thất bại do mạng hoặc bị chặn");
+      if (!res.ok) throw new Error("Tải lên thất bại");
 
-      // Ghi thông tin có kèm theo Category
       await addRecord('documents', { 
         title: file.name, 
         type: fileExt || 'unknown', 
@@ -67,7 +110,7 @@ export default function DocsPage() {
     }
   };
 
-  const handleDelete = async (id: string, path: string) => {
+  const handleDeleteDoc = async (id: string, path: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này vĩnh viễn?")) return;
     
     const loadingToast = toast.loading("Đang xóa...");
@@ -80,10 +123,12 @@ export default function DocsPage() {
     }
   };
 
-  // Lọc tài liệu theo môn học
   const filteredDocs = activeCategory === 'Tất cả' 
     ? docs 
-    : docs.filter(doc => doc.category === activeCategory);
+    : docs.filter(doc => (doc.category || 'Chung') === activeCategory);
+
+  // Gộp danh sách chủ đề mặc định và tùy chỉnh
+  const allCategoryNames = ['Chung', ...categories.map(c => c.name)];
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in flex flex-col h-full">
@@ -93,15 +138,14 @@ export default function DocsPage() {
           <p className="text-slate-500 mt-1 font-medium">Lưu trữ và phân loại kiến thức của bạn</p>
         </div>
         
-        {/* Khu vực Upload */}
         <div className="flex items-center gap-3 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
           <select 
             value={uploadCategory} 
             onChange={(e) => setUploadCategory(e.target.value)}
-            className="bg-slate-50 border-none text-slate-600 font-medium text-sm rounded-xl py-2.5 px-4 outline-none cursor-pointer focus:ring-2 focus:ring-blue-100"
+            className="bg-slate-50 border-none text-slate-600 font-bold text-sm rounded-xl py-2.5 px-4 outline-none cursor-pointer focus:ring-2 focus:ring-blue-100"
           >
-            {CATEGORIES.filter(c => c.id !== 'Tất cả').map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+            {allCategoryNames.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
 
@@ -109,7 +153,7 @@ export default function DocsPage() {
             {uploading ? (
               <span className="animate-pulse flex items-center gap-2"><Upload size={18} /> Đang tải...</span>
             ) : (
-              <><Upload size={18} /> Tải tài liệu lên</>
+              <><Upload size={18} /> Tải lên</>
             )}
             <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.ppt,.pptx" onChange={handleUpload} disabled={uploading} />
           </label>
@@ -119,30 +163,79 @@ export default function DocsPage() {
       <div className="flex flex-col md:flex-row gap-8 items-start">
         {/* Sidebar Thư mục */}
         <div className="w-full md:w-64 flex flex-col gap-2 bg-white p-4 rounded-3xl shadow-sm border border-slate-100 shrink-0 sticky top-6">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-2">Môn học / Chủ đề</h3>
-          {CATEGORIES.map(category => (
-            <button
-              key={category.id}
-              onClick={() => setActiveCategory(category.id)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${
-                activeCategory === category.id 
-                  ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100" 
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700 border border-transparent"
-              }`}
-            >
-              <span className={`${activeCategory === category.id ? "text-blue-500" : "text-slate-400"}`}>
-                {category.icon}
-              </span>
-              {category.name}
-              
-              {/* Hiển thị số lượng (nếu muốn) */}
-              {category.id !== 'Tất cả' && (
-                <span className="ml-auto bg-slate-100 text-slate-400 py-0.5 px-2 rounded-full text-xs">
-                  {docs.filter(d => (d.category || 'Chung') === category.id).length}
+          <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-2">Thư viện</h3>
+          
+          <button
+            onClick={() => setActiveCategory('Tất cả')}
+            className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${
+              activeCategory === 'Tất cả' ? "bg-blue-50 text-blue-700 border border-blue-100 shadow-sm" : "text-slate-500 hover:bg-slate-50 border border-transparent"
+            }`}
+          >
+            <FileStack size={18} className={activeCategory === 'Tất cả' ? "text-blue-500" : "text-slate-400"} />
+            Tất cả tài liệu
+            <span className="ml-auto bg-slate-100 text-slate-400 py-0.5 px-2 rounded-full text-xs">{docs.length}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveCategory('Chung')}
+            className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${
+              activeCategory === 'Chung' ? "bg-blue-50 text-blue-700 border border-blue-100 shadow-sm" : "text-slate-500 hover:bg-slate-50 border border-transparent"
+            }`}
+          >
+            <Folder size={18} className={activeCategory === 'Chung' ? "text-blue-500" : "text-slate-400"} />
+            Chung
+            <span className="ml-auto bg-slate-100 text-slate-400 py-0.5 px-2 rounded-full text-xs">{docs.filter(d => (d.category || 'Chung') === 'Chung').length}</span>
+          </button>
+
+          <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-4">Chủ đề của bạn</h3>
+          
+          {categories.map(category => (
+            <div key={category.id} className="group relative">
+              <button
+                onClick={() => setActiveCategory(category.name)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm w-full text-left ${
+                  activeCategory === category.name ? "bg-blue-50 text-blue-700 border border-blue-100 shadow-sm" : "text-slate-500 hover:bg-slate-50 border border-transparent"
+                }`}
+              >
+                <Folder size={18} className={activeCategory === category.name ? "text-blue-500" : "text-slate-400"} />
+                <span className="truncate max-w-[120px]">{category.name}</span>
+                <span className="ml-auto bg-slate-100 text-slate-400 py-0.5 px-2 rounded-full text-xs group-hover:opacity-0 transition-opacity">
+                  {docs.filter(d => d.category === category.name).length}
                 </span>
-              )}
-            </button>
+              </button>
+              
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleDeleteCategory(category.id, category.name); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-red-400 hover:bg-red-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all bg-white shadow-sm"
+                title="Xóa chủ đề"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           ))}
+
+          {isAddingCat ? (
+            <form onSubmit={handleAddCategory} className="mt-2 p-2 bg-blue-50/50 rounded-2xl border border-blue-100 flex items-center">
+              <input
+                autoFocus
+                type="text"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                placeholder="Tên chủ đề..."
+                className="w-full bg-transparent text-sm font-bold text-slate-700 outline-none px-2"
+              />
+              <button type="button" onClick={() => setIsAddingCat(false)} className="p-1 text-slate-400 hover:text-slate-600"><X size={16} /></button>
+              <button type="submit" className="p-1 text-blue-500 hover:text-blue-700 font-bold ml-1">OK</button>
+            </form>
+          ) : (
+            <button
+              onClick={() => setIsAddingCat(true)}
+              className="flex items-center gap-2 px-4 py-3 mt-2 rounded-2xl transition-all font-bold text-sm text-blue-500 hover:bg-blue-50 border border-dashed border-blue-200"
+            >
+              <FolderPlus size={18} />
+              Thêm chủ đề
+            </button>
+          )}
         </div>
 
         {/* Danh sách tài liệu */}
@@ -184,7 +277,7 @@ export default function DocsPage() {
                         <a href={doc.publicUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors" title="Xem/Tải">
                           <ExternalLink size={18} />
                         </a>
-                        <button onClick={() => handleDelete(doc.id, doc.url)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="Xóa">
+                        <button onClick={() => handleDeleteDoc(doc.id, doc.url)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="Xóa">
                           <Trash2 size={18} />
                         </button>
                       </div>

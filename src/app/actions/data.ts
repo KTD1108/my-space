@@ -1,8 +1,7 @@
 "use server"
 import { createClient } from '@/utils/supabase/server'
-import { supabaseAdmin } from '@/lib/supabase-server' // Vẫn giữ để tạo link tải xuống an toàn nếu cần, tuy nhiên dùng client là tốt nhất
+import { supabaseAdmin } from '@/lib/supabase-server' 
 
-// 1. Hàm gác cổng tự động lấy thông tin người dùng đang đăng nhập
 async function getUser() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -10,39 +9,28 @@ async function getUser() {
   return user
 }
 
-// 2. Tạo link upload riêng cho Từng người dùng
 export async function getUploadUrl(path: string) {
   const user = await getUser();
-  // Bắt buộc đẩy file vào đúng thư mục có tên là Mã ID của người đó
   const fullPath = `${user.id}/${path}`;
-  
   const supabase = await createClient();
   const { data, error } = await supabaseAdmin.storage.from('personal_files').createSignedUploadUrl(fullPath);
   if (error) throw new Error(error.message);
   return { signedUrl: data.signedUrl, fullPath };
 }
 
-// 3. Hàm lưu thông tin file (Tự động gán user_id)
 export async function addRecord(table: string, payload: any) {
   const user = await getUser();
   const supabase = await createClient();
-  // Khi insert, tự chèn thêm user_id vào
   const { error } = await supabase.from(table).insert([{ ...payload, user_id: user.id }]);
   if (error) throw new Error(error.message);
 }
 
-// 4. Hàm xóa file
 export async function deleteRecord(table: string, id: string, path: string) {
   const supabase = await createClient();
-  
-  // Xóa vật lý
   await supabaseAdmin.storage.from('personal_files').remove([path]);
-  
-  // Xóa Database (RLS sẽ tự chặn nếu không phải file của user đó)
   await supabase.from(table).delete().eq('id', id);
 }
 
-// 5. Các hàm lấy dữ liệu (Supabase RLS sẽ TỰ ĐỘNG CHỈ TRẢ VỀ DATA CỦA NGƯỜI ĐĂNG NHẬP)
 async function generateSignedUrl(path: string) {
   const { data } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(path, 60 * 60 * 24);
   return data?.signedUrl || '';
@@ -82,4 +70,30 @@ export async function getDashboardStats() {
     songs: songsData.count || 0,
     photos: photosData.count || 0
   };
+}
+
+// ---- API QUẢN LÝ CHỦ ĐỀ ----
+export async function getCategories() {
+  const supabase = await createClient();
+  const { data } = await supabase.from('categories').select('*').order('created_at', { ascending: true });
+  return data || [];
+}
+
+export async function addCategory(name: string) {
+  const user = await getUser();
+  const supabase = await createClient();
+  // Không cho phép trùng tên
+  const { data: existing } = await supabase.from('categories').select('id').eq('name', name).eq('user_id', user.id);
+  if (existing && existing.length > 0) throw new Error('Chủ đề này đã tồn tại!');
+  
+  const { error } = await supabase.from('categories').insert([{ name, user_id: user.id }]);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteCategory(id: string, name: string) {
+  const supabase = await createClient();
+  // Đưa toàn bộ tài liệu trong thư mục bị xóa về thư mục "Chung"
+  await supabase.from('documents').update({ category: 'Chung' }).eq('category', name);
+  // Xóa thư mục
+  await supabase.from('categories').delete().eq('id', id);
 }
