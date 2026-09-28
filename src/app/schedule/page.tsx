@@ -10,7 +10,8 @@ export default function SchedulePage() {
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
-  // Trạng thái Form thêm lịch
+  // Trạng thái Form thêm lịch & Xem chi tiết ngày
+  const [viewingDay, setViewingDay] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -132,7 +133,7 @@ export default function SchedulePage() {
       cells.push(
         <div 
           key={day} 
-          onClick={() => { setDate(dateStr); setIsAdding(true); }}
+          onClick={() => setViewingDay(dateStr)} // SỬA ĐỔI: BẤM VÀO SẼ MỞ BẢNG CHI TIẾT NGÀY
           className={`min-h-[120px] bg-white border rounded-2xl p-2 transition-all cursor-pointer group hover:shadow-md ${isToday ? 'border-blue-400 ring-2 ring-blue-100 ring-offset-1' : 'border-slate-200 hover:border-blue-300'}`}
         >
           <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-bold mb-1.5 ${isToday ? 'bg-blue-500 text-white shadow-sm shadow-blue-200' : 'text-slate-600 group-hover:text-blue-500'}`}>
@@ -145,7 +146,7 @@ export default function SchedulePage() {
               return (
                 <div 
                   key={s.id} 
-                  onClick={(e) => { e.stopPropagation(); /* Mở modal xem chi tiết sau này */ }}
+                  onClick={(e) => { e.stopPropagation(); setViewingDay(dateStr); }}
                   className={`text-xs p-1.5 px-2 rounded-lg truncate font-bold transition-all ${s.is_completed ? 'opacity-40 line-through bg-slate-100 text-slate-500' : col.solid} hover:brightness-110 shadow-sm`}
                   title={`${s.start_time.substring(0,5)} - ${s.title}`}
                 >
@@ -285,6 +286,59 @@ export default function SchedulePage() {
             )}
           </div>
         )
+      )}
+
+      {/* MODAL XEM CHI TIẾT NGÀY (DAY VIEW) */}
+      {viewingDay && !isAdding && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setViewingDay(null)}>
+          <div className="bg-white rounded-[2rem] p-6 md:p-8 w-full max-w-lg shadow-2xl scale-100 animate-in zoom-in-95 max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="font-extrabold text-slate-800 text-xl capitalize">
+                  {new Date(viewingDay).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </h3>
+                <p className="text-sm font-medium text-slate-500 mt-1">Lịch trình chi tiết</p>
+              </div>
+              <button onClick={() => setViewingDay(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X size={20} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 mb-6 pr-2">
+              {(groupedSchedules[viewingDay] || []).length === 0 ? (
+                <div className="text-center py-10 flex flex-col items-center justify-center">
+                  <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mb-4"><CalendarIcon size={24} /></div>
+                  <p className="text-slate-500 font-bold">Bạn hoàn toàn rảnh rỗi vào ngày này!</p>
+                </div>
+              ) : (
+                (groupedSchedules[viewingDay] || []).map((schedule: any) => {
+                  const col = colors.find(c => c.id === schedule.color) || colors[0];
+                  return (
+                    <div key={schedule.id} className={`flex items-start justify-between p-4 rounded-2xl border transition-all ${schedule.is_completed ? 'bg-slate-50 border-slate-100 opacity-60' : `bg-white ${col.border}`}`}>
+                      <div className="flex items-start gap-3">
+                        <button onClick={() => handleToggleStatus(schedule.id, schedule.is_completed)} className={`mt-0.5 transition-colors ${schedule.is_completed ? 'text-emerald-500' : 'text-slate-300 hover:text-emerald-400'}`}>
+                          {schedule.is_completed ? <CheckCircle2 size={22} /> : <Circle size={22} />}
+                        </button>
+                        <div>
+                          <h4 className={`font-extrabold text-sm mb-1 ${schedule.is_completed ? 'line-through text-slate-500' : 'text-slate-800'}`}>{schedule.title}</h4>
+                          <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md ${col.bg} ${col.text}`}>
+                            <Clock size={12} /> {schedule.start_time.substring(0,5)} - {schedule.end_time.substring(0,5)}
+                          </span>
+                        </div>
+                      </div>
+                      <button onClick={() => handleDelete(schedule.id)} className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <button 
+              onClick={() => { setDate(viewingDay); setViewingDay(null); setIsAdding(true); }}
+              className="w-full bg-blue-50 text-blue-600 hover:bg-blue-100 py-3.5 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+            >
+              <Plus size={18} /> Thêm sự kiện mới
+            </button>
+          </div>
+        </div>
       )}
 
       {/* MODAL THÊM LỊCH HỌC BẬT LÊN Ở GIỮA */}
