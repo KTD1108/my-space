@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Upload, Trash2, ExternalLink, File, FileText, Folder, FolderPlus, FileStack, X, Link as LinkIcon } from "lucide-react";
+import { Upload, Trash2, ExternalLink, File, FileText, Folder, FolderPlus, FileStack, X, Link as LinkIcon, Share2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { getDocs, getUploadUrl, addRecord, deleteRecord, getCategories, addCategory, deleteCategory } from "@/app/actions/data";
+import { getDocs, getUploadUrl, addRecord, deleteRecord, getCategories, addCategory, deleteCategory, createShareLink } from "@/app/actions/data";
 
 export default function DocsPage() {
   const [docs, setDocs] = useState<any[]>([]);
@@ -26,6 +26,18 @@ export default function DocsPage() {
     fetchDocs(); 
     fetchCategories();
   }, []);
+
+  const handleShare = async (id: string, type: 'photo' | 'doc') => {
+    const toastId = toast.loading("Đang tạo liên kết chia sẻ...");
+    try {
+      const shareId = await createShareLink(type, id);
+      const url = `${window.location.origin}/share/${shareId}`;
+      await navigator.clipboard.writeText(url);
+      toast.success("Đã copy link chia sẻ vào khay nhớ tạm!", { id: toastId });
+    } catch (e: any) {
+      toast.error("Lỗi: " + e.message, { id: toastId });
+    }
+  };
 
   const fetchDocs = async () => {
     setIsLoading(true);
@@ -370,6 +382,9 @@ export default function DocsPage() {
                         <a href={doc.publicUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors" title="Xem/Truy cập">
                           <ExternalLink size={18} />
                         </a>
+                        <button onClick={() => handleShare(doc.id, 'doc')} className="p-2 text-purple-600 hover:bg-purple-100 rounded-xl transition-colors" title="Chia sẻ">
+                          <Share2 size={18} />
+                        </button>
                         <button onClick={() => handleDeleteDoc(doc.id, doc.url)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="Xóa">
                           <Trash2 size={18} />
                         </button>

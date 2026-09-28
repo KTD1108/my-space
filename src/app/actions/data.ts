@@ -210,3 +210,54 @@ export async function deleteSchedule(id: string) {
   const { error } = await supabase.from('study_schedules').delete().eq('id', id);
   if (error) throw new Error(error.message);
 }
+
+// ---- API CHIA SẺ (SHARING) ----
+export async function createShareLink(type: 'photo' | 'doc', itemId: string) {
+  const user = await getUser();
+  const supabase = await createClient();
+  
+  const { data: existing } = await supabase.from('shared_links').select('id').eq('item_type', type).eq('item_id', itemId).single();
+  if (existing) return existing.id;
+  
+  const { data, error } = await supabase.from('shared_links').insert([{
+    user_id: user.id,
+    item_type: type,
+    item_id: itemId
+  }]).select('id').single();
+  
+  if (error) throw new Error(error.message);
+  return data.id;
+}
+
+export async function getSharedItemInfo(shareId: string) {
+  // Dùng quyền Admin để lấy dữ liệu cho khách (vì khách không có quyền RLS)
+  const { data: link, error: linkErr } = await supabaseAdmin.from('shared_links').select('*').eq('id', shareId).single();
+  if (linkErr || !link) throw new Error('Liên kết không tồn tại hoặc đã bị khóa.');
+
+  let itemDetails = null;
+  if (link.item_type === 'photo') {
+    const { data } = await supabaseAdmin.from('photos').select('*').eq('id', link.item_id).single();
+    itemDetails = data;
+  } else if (link.item_type === 'doc') {
+    const { data } = await supabaseAdmin.from('documents').select('*').eq('id', link.item_id).single();
+    itemDetails = data;
+  }
+
+  if (!itemDetails) throw new Error('Tệp này đã bị chủ sở hữu xóa.');
+
+  let publicUrl = itemDetails.url;
+  if (itemDetails.url && !itemDetails.url.startsWith('http')) {
+     const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(itemDetails.url, 60 * 60 * 24); 
+     publicUrl = urlData?.signedUrl;
+  }
+
+  const { data: userData } = await supabaseAdmin.auth.admin.getUserById(link.user_id);
+  const ownerName = userData?.user?.user_metadata?.display_name || 'Một người dùng';
+  let ownerAvatar = null;
+  if (userData?.user?.user_metadata?.avatar_url) {
+    const { data: avaData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(userData.user.user_metadata.avatar_url, 60 * 60 * 24);
+    ownerAvatar = avaData?.signedUrl;
+  }
+
+  return { type: link.item_type, item: { ...itemDetails, publicUrl }, ownerName, ownerAvatar };
+}

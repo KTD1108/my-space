@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Upload, Trash2, Maximize2, X, Image as ImageIcon, ImagePlus, FolderHeart, FolderOpen, Images, FolderInput } from "lucide-react";
+import { Upload, Trash2, Maximize2, X, Image as ImageIcon, ImagePlus, FolderHeart, FolderOpen, Images, FolderInput, Share2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { getPhotos, getUploadUrl, addRecord, deleteRecord, getAlbums, addAlbum, deleteAlbum, movePhotoToAlbum } from "@/app/actions/data";
+import { getPhotos, getUploadUrl, addRecord, deleteRecord, getAlbums, addAlbum, deleteAlbum, movePhotoToAlbum, createShareLink } from "@/app/actions/data";
 
 export default function GalleryPage() {
   const [photos, setPhotos] = useState<any[]>([]);
@@ -25,6 +25,18 @@ export default function GalleryPage() {
     fetchPhotos(); 
     fetchAlbums();
   }, []);
+
+  const handleShare = async (id: string, type: 'photo' | 'doc') => {
+    const toastId = toast.loading("Đang tạo liên kết chia sẻ...");
+    try {
+      const shareId = await createShareLink(type, id);
+      const url = `${window.location.origin}/share/${shareId}`;
+      await navigator.clipboard.writeText(url);
+      toast.success("Đã copy link chia sẻ vào khay nhớ tạm!", { id: toastId });
+    } catch (e: any) {
+      toast.error("Lỗi: " + e.message, { id: toastId });
+    }
+  };
 
   const fetchPhotos = async () => {
     setIsLoading(true);
@@ -297,9 +309,16 @@ export default function GalleryPage() {
                   
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                     <p className="text-white text-xs font-bold truncate mb-3 drop-shadow-md">{photo.title}</p>
-                    <div className="flex justify-between items-center gap-2">
+                    <div className="flex justify-between items-center gap-1.5">
                       <button onClick={() => setSelectedPhoto(photo.publicUrl)} className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center" title="Phóng to">
                         <Maximize2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleShare(photo.id, 'photo')} 
+                        className="p-2 bg-purple-500/80 hover:bg-purple-500 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center" 
+                        title="Chia sẻ"
+                      >
+                        <Share2 size={16} />
                       </button>
                       <button 
                         onClick={() => { setTargetAlbumMove(photo.album || 'Chung'); setMovingPhoto(photo); }} 
