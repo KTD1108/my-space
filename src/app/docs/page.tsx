@@ -107,6 +107,19 @@ export default function DocsPage() {
       const fileExt = file.name.split('.').pop();
       const fileName = `docs/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
+      // --- Tích hợp Trợ lý AI Phân loại ---
+      let autoCategory = uploadCategory;
+      try {
+        toast.loading(`Trợ lý AI đang đọc và phân loại tệp...`, { id: loadingToast });
+        const { categorizeDoc } = await import('@/app/actions/ai');
+        const guessedCat = await categorizeDoc(file.name);
+        if (guessedCat && guessedCat.length < 20) {
+          autoCategory = guessedCat;
+        }
+      } catch (aiError) {
+        console.error("AI Error:", aiError);
+      }
+
       const { signedUrl, fullPath } = await getUploadUrl(fileName);
 
       const res = await fetch(signedUrl, {
@@ -120,11 +133,12 @@ export default function DocsPage() {
         title: file.name, 
         type: fileExt || 'unknown', 
         url: fullPath,
-        category: uploadCategory
+        category: autoCategory
       });
 
-      toast.success("Tải tài liệu thành công!", { id: loadingToast });
+      toast.success(`Tải tài liệu thành công! AI đã xếp vào: ${autoCategory}`, { id: loadingToast });
       fetchDocs();
+      fetchCategories();
     } catch (error: any) {
       toast.error("Lỗi tải lên: " + error.message, { id: loadingToast });
     } finally {
@@ -144,18 +158,31 @@ export default function DocsPage() {
     const loadingToast = toast.loading(`Đang lưu đường dẫn vào ${uploadCategory}...`);
     
     try {
+      let autoCategory = uploadCategory;
+      try {
+        toast.loading(`Trợ lý AI đang phân loại liên kết...`, { id: loadingToast });
+        const { categorizeDoc } = await import('@/app/actions/ai');
+        const guessedCat = await categorizeDoc(linkTitle || finalUrl);
+        if (guessedCat && guessedCat.length < 20) {
+          autoCategory = guessedCat;
+        }
+      } catch (aiError) {
+        console.error("AI Error:", aiError);
+      }
+
       await addRecord('documents', { 
         title: linkTitle.trim() || finalUrl, 
         type: 'link', 
         url: finalUrl,
-        category: uploadCategory
+        category: autoCategory
       });
 
-      toast.success("Đã lưu đường dẫn!", { id: loadingToast });
+      toast.success(`Đã lưu Link! AI đã xếp vào: ${autoCategory}`, { id: loadingToast });
       setLinkTitle('');
       setLinkUrl('');
       setIsAddingLink(false);
       fetchDocs();
+      fetchCategories();
     } catch (error: any) {
       toast.error("Lỗi khi lưu: " + error.message, { id: loadingToast });
     }

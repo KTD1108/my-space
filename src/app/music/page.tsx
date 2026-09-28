@@ -41,6 +41,17 @@ export default function MusicPage() {
     
     try {
       const fileName = `music/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+
+      // --- AI Phân loại Thể loại nhạc ---
+      let aiGenre = '';
+      try {
+        toast.loading("AI đang phân tích thể loại bài hát...", { id: loadingToast });
+        const { guessMusicGenre } = await import('@/app/actions/ai');
+        const guessed = await guessMusicGenre(file.name);
+        if (guessed && guessed.length < 20) aiGenre = guessed;
+      } catch (aiErr) {
+        console.error(aiErr);
+      }
       
       const { signedUrl, fullPath } = await getUploadUrl(fileName);
       const res = await fetch(signedUrl, {
@@ -50,9 +61,10 @@ export default function MusicPage() {
       });
       if (!res.ok) throw new Error("Upload bị chặn");
 
-      await addRecord('songs', { title: file.name, url: fullPath });
+      const finalTitle = aiGenre ? `[${aiGenre}] ${file.name}` : file.name;
+      await addRecord('songs', { title: finalTitle, url: fullPath });
 
-      toast.success("Thêm bài hát thành công!", { id: loadingToast });
+      toast.success(aiGenre ? `Đã thêm bài hát! AI đoán thể loại: ${aiGenre}` : "Thêm bài hát thành công!", { id: loadingToast });
       fetchSongs();
     } catch (error: any) {
       toast.error("Lỗi tải lên: " + error.message, { id: loadingToast });
@@ -72,12 +84,25 @@ export default function MusicPage() {
 
     const loadingToast = toast.loading("Đang lưu đường dẫn nhạc...");
     try {
+      let aiGenre = '';
+      const baseTitle = linkTitle.trim() || 'SoundCloud Track';
+      try {
+        toast.loading("AI đang phân tích thể loại...", { id: loadingToast });
+        const { guessMusicGenre } = await import('@/app/actions/ai');
+        const guessed = await guessMusicGenre(baseTitle + " " + finalUrl);
+        if (guessed && guessed.length < 20) aiGenre = guessed;
+      } catch (aiErr) {
+        console.error(aiErr);
+      }
+
+      const finalTitle = aiGenre ? `[${aiGenre}] ${baseTitle}` : baseTitle;
+
       await addRecord('songs', { 
-        title: linkTitle.trim() || 'SoundCloud Track', 
+        title: finalTitle, 
         url: finalUrl 
       });
 
-      toast.success("Đã thêm nhạc ngoài!", { id: loadingToast });
+      toast.success(aiGenre ? `Đã lưu! AI đoán thể loại: ${aiGenre}` : "Đã thêm nhạc ngoài!", { id: loadingToast });
       setLinkTitle('');
       setLinkUrl('');
       setIsAddingLink(false);
