@@ -17,7 +17,7 @@ export async function guessMusicGenre(songTitle: string) {
     const prompt = `Bạn là một chuyên gia âm nhạc. Dựa vào tên bài hát hoặc liên kết "${songTitle}", hãy đoán thể loại nhạc của nó (Ví dụ: Pop, EDM, Lofi, Ballad, Rap...). Trả về ĐÚNG 1 TỪ HOẶC CỤM TỪ NGẮN NHẤT mô tả thể loại, tuyệt đối không giải thích thêm.`;
     
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
     });
     return { success: true, data: (response.text || '').trim().replace(/[\[\]"']/g, '') }; 
@@ -32,7 +32,7 @@ export async function categorizeDoc(docTitle: string) {
     const prompt = `Dựa vào tên tài liệu hoặc liên kết URL sau: "${docTitle}", hãy phân loại nó thuộc chủ đề gì (Ví dụ: Lập trình, Toán học, Giải trí, Kinh tế, Ngoại ngữ, Khác...). Trả về đúng 1 cụm từ ngắn gọn làm tên Danh mục, tuyệt đối không giải thích.`;
     
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
     });
     return { success: true, data: (response.text || '').trim().replace(/[\[\]"']/g, '') };
@@ -55,7 +55,7 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       if (typeof global !== 'undefined' && typeof (global as any).DOMMatrix === 'undefined') {
         (global as any).DOMMatrix = class DOMMatrix { constructor() {} };
       }
-      const pdfParseModule = require('pdf-parse');
+      const pdfParseModule = require('pdf-parse/lib/pdf-parse.js');
       const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule.default;
       
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
@@ -95,7 +95,7 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
     const prompt = `Hãy đóng vai một chuyên gia phân tích. Tóm tắt nội dung tài liệu sau đây một cách súc tích, dễ hiểu, bằng tiếng Việt (khoảng 3-5 câu). Trình bày rõ ràng các ý chính:\n\n${contentToSummarize}`;
     
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
     });
     
