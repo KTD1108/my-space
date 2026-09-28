@@ -51,6 +51,10 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       const html = await res.text();
       contentToSummarize = html.replace(/<[^>]*>?/gm, ' ').substring(0, 15000); 
     } else if (docType === 'pdf') {
+      // Polyfill ảo cho DOMMatrix để tránh lỗi của pdf.js trên môi trường Node/Next.js
+      if (typeof global !== 'undefined' && typeof (global as any).DOMMatrix === 'undefined') {
+        (global as any).DOMMatrix = class DOMMatrix { constructor() {} };
+      }
       const pdfParseModule = require('pdf-parse');
       const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule.default;
       
