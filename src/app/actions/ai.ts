@@ -2,8 +2,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { createClient } from '@/utils/supabase/server';
-import pdfParse from 'pdf-parse';
-import mammoth from 'mammoth';
 
 function getAIClient() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -53,6 +51,7 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       const html = await res.text();
       contentToSummarize = html.replace(/<[^>]*>?/gm, ' ').substring(0, 15000); 
     } else if (docType === 'pdf') {
+      const pdfParse = require('pdf-parse');
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
       if (!urlData?.signedUrl) throw new Error("Không thể truy cập file PDF.");
       
@@ -62,6 +61,7 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       const parsed = await pdfParse(Buffer.from(buffer));
       contentToSummarize = parsed.text.substring(0, 15000); 
     } else if (docType === 'docx') {
+      const mammoth = require('mammoth');
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
       if (!urlData?.signedUrl) throw new Error("Không thể truy cập file Word.");
       
