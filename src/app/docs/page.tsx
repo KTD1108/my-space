@@ -123,6 +123,16 @@ export default function DocsPage() {
     }
   };
 
+  const handleCategoryClick = (name: string) => {
+    setActiveCategory(name);
+    // Tự động đồng bộ: Đứng ở thư mục nào thì Tải lên thư mục đó
+    if (name !== 'Tất cả') {
+      setUploadCategory(name);
+    } else {
+      setUploadCategory('Chung');
+    }
+  };
+
   const filteredDocs = activeCategory === 'Tất cả' 
     ? docs 
     : docs.filter(doc => (doc.category || 'Chung') === activeCategory);
@@ -166,7 +176,7 @@ export default function DocsPage() {
           <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-2">Thư viện</h3>
           
           <button
-            onClick={() => setActiveCategory('Tất cả')}
+            onClick={() => handleCategoryClick('Tất cả')}
             className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${
               activeCategory === 'Tất cả' ? "bg-blue-50 text-blue-700 border border-blue-100 shadow-sm" : "text-slate-500 hover:bg-slate-50 border border-transparent"
             }`}
@@ -177,7 +187,7 @@ export default function DocsPage() {
           </button>
 
           <button
-            onClick={() => setActiveCategory('Chung')}
+            onClick={() => handleCategoryClick('Chung')}
             className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm ${
               activeCategory === 'Chung' ? "bg-blue-50 text-blue-700 border border-blue-100 shadow-sm" : "text-slate-500 hover:bg-slate-50 border border-transparent"
             }`}
@@ -192,7 +202,7 @@ export default function DocsPage() {
           {categories.map(category => (
             <div key={category.id} className="group relative">
               <button
-                onClick={() => setActiveCategory(category.name)}
+                onClick={() => handleCategoryClick(category.name)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm w-full text-left ${
                   activeCategory === category.name ? "bg-blue-50 text-blue-700 border border-blue-100 shadow-sm" : "text-slate-500 hover:bg-slate-50 border border-transparent"
                 }`}
