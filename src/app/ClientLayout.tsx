@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Home, FileText, Music, Image as ImageIcon, Menu, X, LogOut, User as UserIcon } from "lucide-react";
+import { Home, FileText, Music, Image as ImageIcon, Menu, X, LogOut, Settings } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 import { logout } from "./login/actions";
 import { getProfileData } from "@/app/actions/data";
@@ -10,15 +10,14 @@ import { getProfileData } from "@/app/actions/data";
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [profile, setProfile] = useState<{name: string, avatar: string | null} | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profile, setProfile] = useState<{name: string, avatar: string | null, email?: string} | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
       try {
         const data = await getProfileData();
-        if (data) {
-          setProfile(data);
-        }
+        if (data) setProfile(data);
       } catch (e) {
         // Ignored
       }
@@ -31,7 +30,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     { name: "Kỷ niệm", href: "/gallery", icon: <ImageIcon size={22} /> },
     { name: "Giai điệu", href: "/music", icon: <Music size={22} /> },
     { name: "Học tập", href: "/docs", icon: <FileText size={22} /> },
-    { name: "Trang cá nhân", href: "/profile", icon: <UserIcon size={22} /> },
   ];
 
   if (pathname === "/login") {
@@ -50,8 +48,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <div className="flex h-screen w-full text-slate-700 bg-[#F9FAFB]">
       <Toaster position="top-center" toastOptions={{ className: 'rounded-2xl shadow-xl font-bold border border-slate-100' }} />
       
+      {/* Nút mở menu trên Mobile */}
       <button 
-        className="md:hidden fixed top-4 right-4 z-50 bg-white/80 backdrop-blur-md p-3 rounded-full shadow-lg text-slate-700 border border-slate-100"
+        className="md:hidden fixed top-5 right-5 z-50 bg-white/80 backdrop-blur-md p-3 rounded-full shadow-lg text-slate-700 border border-slate-100"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       >
         {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -86,24 +85,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           })}
         </nav>
         
-        {/* Khu vực Profile dễ thương ở đáy */}
-        <div className="p-5 mt-auto">
-          <div className="bg-slate-50 border border-slate-100 rounded-3xl p-4 flex flex-col gap-4 shadow-sm">
-            <Link href="/profile" className="flex items-center gap-3 group hover:bg-white p-2 -m-2 rounded-2xl transition-all cursor-pointer">
-              <img src={avatarUrl} alt="Avatar" className="w-12 h-12 rounded-full object-cover shadow-sm bg-white border-2 border-white group-hover:scale-105 transition-transform" />
-              <div className="overflow-hidden">
-                <p className="text-xs text-slate-400 font-bold">Chủ nhân</p>
-                <p className="text-sm font-extrabold text-slate-700 truncate">{displayName}</p>
-              </div>
-            </Link>
-            <button 
-              onClick={() => logout()}
-              className="flex justify-center items-center gap-2 px-4 py-2.5 w-full rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all font-bold text-sm border border-transparent hover:border-red-100 mt-1"
-            >
-              <LogOut size={16} />
-              Đăng xuất
-            </button>
-          </div>
+        <div className="p-5 mt-auto text-xs text-slate-400 text-center font-bold mb-2 uppercase tracking-widest">
+          &copy; {new Date().getFullYear()} Coded with ❤️
         </div>
       </aside>
       
@@ -111,12 +94,59 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <div className="md:hidden fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-30 transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
       )}
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-6 md:p-12 h-full w-full relative">
-        <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-pink-400/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-[-10%] left-[-5%] w-96 h-96 bg-purple-400/10 rounded-full blur-3xl pointer-events-none"></div>
+      {/* Khu vực nội dung chính */}
+      <main className="flex-1 overflow-y-auto h-full w-full relative flex flex-col">
+        <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-pink-400/10 rounded-full blur-3xl pointer-events-none z-0"></div>
+        <div className="absolute bottom-[-10%] left-[-5%] w-96 h-96 bg-purple-400/10 rounded-full blur-3xl pointer-events-none z-0"></div>
         
-        <div className="relative z-10 h-full">
+        {/* HEADER GÓC TRÊN PHẢI (ẢNH ĐẠI DIỆN) */}
+        <div className="w-full flex justify-end items-center px-6 pt-5 md:px-12 md:pt-8 relative z-40">
+          {/* Căn lề mr-14 trên Mobile để không đè vào nút Menu Hamburger */}
+          <div className="relative mr-14 md:mr-0">
+            <button 
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="flex items-center gap-3 bg-white p-1.5 pr-4 rounded-full shadow-sm border border-slate-200 hover:shadow-md transition-all active:scale-95"
+            >
+              <img src={avatarUrl} alt="Avatar" className="w-9 h-9 rounded-full object-cover bg-slate-100 border border-slate-100" />
+              <span className="text-sm font-bold text-slate-700 hidden sm:block truncate max-w-[120px]">{displayName}</span>
+            </button>
+
+            {/* Menu Dropdown Cài đặt / Đăng xuất */}
+            {isProfileOpen && (
+              <>
+                {/* Lớp nền trong suốt để bấm ra ngoài thì đóng menu */}
+                <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
+                
+                <div className="absolute right-0 mt-3 w-64 bg-white rounded-3xl shadow-xl border border-slate-100 p-2 py-3 z-50 animate-in fade-in slide-in-from-top-4">
+                  <div className="px-5 py-3 border-b border-slate-50 mb-2">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Tài khoản</p>
+                    <p className="text-sm font-extrabold text-slate-700 truncate">{profile?.email || 'Đang tải...'}</p>
+                  </div>
+                  
+                  <Link 
+                    href="/profile" 
+                    onClick={() => setIsProfileOpen(false)}
+                    className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 rounded-2xl text-slate-600 font-bold transition-colors"
+                  >
+                    <Settings size={18} className="text-slate-400" />
+                    Cài đặt cá nhân
+                  </Link>
+                  
+                  <button 
+                    onClick={() => logout()}
+                    className="w-full flex items-center gap-3 px-5 py-3.5 mt-1 hover:bg-red-50 text-red-500 font-bold rounded-2xl transition-colors"
+                  >
+                    <LogOut size={18} />
+                    Đăng xuất an toàn
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* NỘI DUNG TỪNG TRANG */}
+        <div className="relative z-10 px-6 pb-6 md:px-12 md:pb-12 mt-2 md:mt-4 flex-1">
           {children}
         </div>
       </main>
