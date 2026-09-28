@@ -51,7 +51,12 @@ export async function getSongs() {
   const supabase = await createClient();
   const { data } = await supabase.from('songs').select('*').order('created_at', { ascending: false });
   if (!data) return [];
-  return Promise.all(data.map(async (s) => ({ ...s, publicUrl: await generateSignedUrl(s.url) })));
+  return Promise.all(data.map(async (s) => {
+    if (s.url && s.url.startsWith('http')) {
+      return { ...s, publicUrl: s.url, isLink: true };
+    }
+    return { ...s, publicUrl: await generateSignedUrl(s.url), isLink: false };
+  }));
 }
 
 export async function getDocs() {
