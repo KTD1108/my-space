@@ -60,13 +60,32 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       const buffer = await res.arrayBuffer();
       
       const parsed = await pdfParse(Buffer.from(buffer));
-      contentToSummarize = parsed.text.substring(0, 15000); // Lấy tối đa 15000 ký tự đầu tiên
+      contentToSummarize = parsed.text.substring(0, 15000); 
+    } else if (docType === 'docx') {
+      const { supabaseAdmin } = await import('@/lib/supabase');
+      const mammoth = (await import('mammoth')).default;
+      
+      const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
+      if (!urlData?.signedUrl) throw new Error("Không thể truy cập file Word.");
+      
+      const res = await fetch(urlData.signedUrl);
+      const buffer = await res.arrayBuffer();
+      
+      const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
+      contentToSummarize = result.value.substring(0, 15000);
+    } else if (['txt', 'md', 'csv', 'json'].includes(docType?.toLowerCase())) {
+      const { supabaseAdmin } = await import('@/lib/supabase');
+      const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
+      if (!urlData?.signedUrl) throw new Error("Không thể truy cập file văn bản.");
+      
+      const res = await fetch(urlData.signedUrl);
+      contentToSummarize = (await res.text()).substring(0, 15000);
     } else {
-      throw new Error("Trợ lý AI hiện tại chỉ hỗ trợ tóm tắt Link Website và file PDF.");
+      throw new Error(`Định dạng .${docType} hiện tại chưa được AI hỗ trợ. Vui lòng sử dụng PDF, Word (.docx), TXT, hoặc Link Website.`);
     }
 
-    if (!contentToSummarize || contentToSummarize.trim().length < 50) {
-      throw new Error("Nội dung tài liệu quá ngắn hoặc bị bảo mật, AI không thể đọc được.");
+    if (!contentToSummarize || contentToSummarize.trim().length < 20) {
+      throw new Error("Nội dung tài liệu quá ngắn hoặc bị bảo mật trống, AI không thể đọc được.");
     }
 
     const prompt = `Hãy đóng vai một chuyên gia phân tích. Tóm tắt nội dung tài liệu sau đây một cách súc tích, dễ hiểu, bằng tiếng Việt (khoảng 3-5 câu). Trình bày rõ ràng các ý chính:\n\n${contentToSummarize}`;
