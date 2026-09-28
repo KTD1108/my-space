@@ -20,17 +20,22 @@ export default function DocsPage() {
   const [linkTitle, setLinkTitle] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
 
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => { 
     fetchDocs(); 
     fetchCategories();
   }, []);
 
   const fetchDocs = async () => {
+    setIsLoading(true);
     try {
       const data = await getDocs();
       setDocs(data);
     } catch (e: any) {
       toast.error(e.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -329,7 +334,17 @@ export default function DocsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredDocs.length === 0 ? (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={4} className="p-5">
+                      <div className="flex flex-col gap-4 w-full">
+                        {[1,2,3,4,5].map(i => (
+                          <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse w-full"></div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredDocs.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="p-12 text-center">
                       <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 mx-auto mb-3">

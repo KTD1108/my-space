@@ -27,49 +27,70 @@ export async function addRecord(table: string, payload: any) {
 
 export async function deleteRecord(table: string, id: string, path: string) {
   const supabase = await createClient();
-  
   if (path && !path.startsWith('http')) {
     await supabaseAdmin.storage.from('personal_files').remove([path]);
   }
-  
   await supabase.from(table).delete().eq('id', id);
 }
 
-async function generateSignedUrl(path: string) {
-  const { data } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(path, 60 * 60 * 24);
-  return data?.signedUrl || '';
-}
-
+// ---- TỐI ƯU HÓA: XIN GIẤY PHÉP (SIGNED URL) HÀNG LOẠT (BULK) ----
 export async function getPhotos() {
   const supabase = await createClient();
   const { data } = await supabase.from('photos').select('*').order('created_at', { ascending: false });
-  if (!data) return [];
-  return Promise.all(data.map(async (p) => ({ ...p, publicUrl: await generateSignedUrl(p.url) })));
+  if (!data || data.length === 0) return [];
+  
+  // Tối ưu: Xin giấy phép 1 lần duy nhất cho toàn bộ ảnh
+  const paths = data.map(p => p.url);
+  const { data: urls } = await supabaseAdmin.storage.from('personal_files').createSignedUrls(paths, 60 * 60 * 24);
+  
+  return data.map((p, i) => ({ ...p, publicUrl: urls?.[i]?.signedUrl || '' }));
 }
 
 export async function getSongs() {
   const supabase = await createClient();
   const { data } = await supabase.from('songs').select('*').order('created_at', { ascending: false });
-  if (!data) return [];
-  return Promise.all(data.map(async (s) => {
+  if (!data || data.length === 0) return [];
+  
+  const fileSongs = data.filter(s => !(s.url && s.url.startsWith('http')));
+  const paths = fileSongs.map(s => s.url);
+  
+  let signedUrlsMap: Record<string, string> = {};
+  if (paths.length > 0) {
+    const { data: urls } = await supabaseAdmin.storage.from('personal_files').createSignedUrls(paths, 60 * 60 * 24);
+    fileSongs.forEach((s, i) => { signedUrlsMap[s.url] = urls?.[i]?.signedUrl || ''; });
+  }
+
+  return data.map(s => {
     if (s.url && s.url.startsWith('http')) {
       return { ...s, publicUrl: s.url, isLink: true };
     }
-    return { ...s, publicUrl: await generateSignedUrl(s.url), isLink: false };
-  }));
+    return { ...s, publicUrl: signedUrlsMap[s.url] || '', isLink: false };
+  });
 }
 
 export async function getDocs() {
   const supabase = await createClient();
   const { data } = await supabase.from('documents').select('*').order('created_at', { ascending: false });
-  if (!data) return [];
-  return Promise.all(data.map(async (d) => {
+  if (!data || data.length === 0) return [];
+  
+  const fileDocs = data.filter(d => d.type !== 'link');
+  const paths = fileDocs.map(d => d.url);
+  
+  let signedUrlsMap: Record<string, string> = {};
+  if (paths.length > 0) {
+    const { data: urls } = await supabaseAdmin.storage.from('personal_files').createSignedUrls(paths, 60 * 60 * 24);
+    fileDocs.forEach((d, i) => { signedUrlsMap[d.url] = urls?.[i]?.signedUrl || ''; });
+  }
+
+  return data.map(d => {
     if (d.type === 'link') {
       return { ...d, publicUrl: d.url };
     }
-    return { ...d, publicUrl: await generateSignedUrl(d.url) };
-  }));
+    return { ...d, publicUrl: signedUrlsMap[d.url] || '' };
+  });
 }
+
+// -----------------------------------------------------------
 
 export async function getDashboardStats() {
   const supabase = await createClient();
@@ -86,7 +107,6 @@ export async function getDashboardStats() {
   };
 }
 
-// ---- API QUẢN LÝ CHỦ ĐỀ TÀI LIỆU ----
 export async function getCategories() {
   const supabase = await createClient();
   const { data } = await supabase.from('categories').select('*').order('created_at', { ascending: true });
@@ -98,7 +118,6 @@ export async function addCategory(name: string) {
   const supabase = await createClient();
   const { data: existing } = await supabase.from('categories').select('id').eq('name', name).eq('user_id', user.id);
   if (existing && existing.length > 0) throw new Error('Chủ đề này đã tồn tại!');
-  
   const { error } = await supabase.from('categories').insert([{ name, user_id: user.id }]);
   if (error) throw new Error(error.message);
 }
@@ -109,7 +128,6 @@ export async function deleteCategory(id: string, name: string) {
   await supabase.from('categories').delete().eq('id', id);
 }
 
-// ---- API QUẢN LÝ ALBUM ẢNH ----
 export async function getAlbums() {
   const supabase = await createClient();
   const { data } = await supabase.from('albums').select('*').order('created_at', { ascending: true });
@@ -121,7 +139,6 @@ export async function addAlbum(name: string) {
   const supabase = await createClient();
   const { data: existing } = await supabase.from('albums').select('id').eq('name', name).eq('user_id', user.id);
   if (existing && existing.length > 0) throw new Error('Album này đã tồn tại!');
-  
   const { error } = await supabase.from('albums').insert([{ name, user_id: user.id }]);
   if (error) throw new Error(error.message);
 }
@@ -138,12 +155,10 @@ export async function movePhotoToAlbum(photoId: string, newAlbum: string) {
   if (error) throw new Error(error.message);
 }
 
-// ---- API TRANG CÁ NHÂN (PROFILE) ----
 export async function updateProfileMetadata(name: string, avatarPath?: string) {
   const supabase = await createClient();
   const updates: any = { display_name: name };
   if (avatarPath) updates.avatar_url = avatarPath;
-  
   const { error } = await supabase.auth.updateUser({ data: updates });
   if (error) throw new Error(error.message);
 }
@@ -152,13 +167,11 @@ export async function getProfileData() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  
   let publicAvatarUrl = null;
   if (user.user_metadata?.avatar_url) {
     const { data } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(user.user_metadata.avatar_url, 60 * 60 * 24 * 7);
     publicAvatarUrl = data?.signedUrl;
   }
-  
   return {
     email: user.email,
     name: user.user_metadata?.display_name || user.email?.split('@')[0],

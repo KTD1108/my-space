@@ -16,15 +16,19 @@ export default function MusicPage() {
   const [currentSong, setCurrentSong] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => { fetchSongs(); }, []);
 
   const fetchSongs = async () => {
+    setIsLoading(true);
     try {
       const data = await getSongs();
       setSongs(data);
     } catch (e: any) {
       toast.error(e.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -181,7 +185,13 @@ export default function MusicPage() {
             <h3 className="font-extrabold text-slate-700">Danh sách phát ({songs.length})</h3>
           </div>
           <ul className="divide-y divide-slate-50">
-            {songs.length === 0 ? (
+            {isLoading ? (
+              <div className="p-4 flex flex-col gap-3">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse w-full"></div>
+                ))}
+              </div>
+            ) : songs.length === 0 ? (
               <li className="p-8 text-center text-slate-500 font-medium">Chưa có bài hát nào! Hãy tải lên hoặc dán link SoundCloud.</li>
             ) : songs.map((song, idx) => (
               <li 

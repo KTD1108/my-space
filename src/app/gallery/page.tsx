@@ -19,19 +19,27 @@ export default function GalleryPage() {
   const [movingPhoto, setMovingPhoto] = useState<any | null>(null);
   const [targetAlbumMove, setTargetAlbumMove] = useState('Chung');
 
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => { 
     fetchPhotos(); 
     fetchAlbums();
   }, []);
 
   const fetchPhotos = async () => {
+    setIsLoading(true);
     try {
       const data = await getPhotos();
       setPhotos(data);
     } catch (e: any) {
       toast.error(e.message);
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  // ...(Bỏ qua định nghĩa cũ, chuyển thẳng đến phần render lưới)
+  // [GHI CHÚ DÀNH CHO CÔNG CỤ REPLACE: Sửa trực tiếp tại khối Lưới ảnh]
 
   const fetchAlbums = async () => {
     try {
@@ -267,7 +275,13 @@ export default function GalleryPage() {
 
         {/* Lưới ảnh */}
         <div className="flex-1 w-full bg-transparent">
-          {filteredPhotos.length === 0 ? (
+          {isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {[1,2,3,4,5,6,7,8,9,10].map(i => (
+                <div key={i} className="aspect-square bg-slate-100 rounded-3xl animate-pulse"></div>
+              ))}
+            </div>
+          ) : filteredPhotos.length === 0 ? (
             <div className="bg-white rounded-3xl p-16 text-center border border-slate-100 shadow-sm flex flex-col items-center justify-center min-h-[400px]">
               <div className="w-20 h-20 bg-pink-50 rounded-[2rem] flex items-center justify-center text-pink-300 mb-4 rotate-3">
                 <ImageIcon size={40} />
