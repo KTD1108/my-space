@@ -123,7 +123,12 @@ export async function addAlbum(name: string) {
 
 export async function deleteAlbum(id: string, name: string) {
   const supabase = await createClient();
-  // Đưa ảnh về album Chung nếu xóa album tùy chỉnh
   await supabase.from('photos').update({ album: 'Chung' }).eq('album', name);
   await supabase.from('albums').delete().eq('id', id);
+}
+
+export async function movePhotoToAlbum(photoId: string, newAlbum: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('photos').update({ album: newAlbum }).eq('id', photoId);
+  if (error) throw new Error(error.message);
 }

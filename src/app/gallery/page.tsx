@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Upload, Trash2, Maximize2, X, Image as ImageIcon, ImagePlus, FolderHeart, FolderOpen, Images } from "lucide-react";
+import { Upload, Trash2, Maximize2, X, Image as ImageIcon, ImagePlus, FolderHeart, FolderOpen, Images, FolderInput } from "lucide-react";
 import toast from "react-hot-toast";
-import { getPhotos, getUploadUrl, addRecord, deleteRecord, getAlbums, addAlbum, deleteAlbum } from "@/app/actions/data";
+import { getPhotos, getUploadUrl, addRecord, deleteRecord, getAlbums, addAlbum, deleteAlbum, movePhotoToAlbum } from "@/app/actions/data";
 
 export default function GalleryPage() {
   const [photos, setPhotos] = useState<any[]>([]);
@@ -16,6 +16,8 @@ export default function GalleryPage() {
   const [newAlbumName, setNewAlbumName] = useState('');
   
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [movingPhoto, setMovingPhoto] = useState<any | null>(null);
+  const [targetAlbumMove, setTargetAlbumMove] = useState('Chung');
 
   useEffect(() => { 
     fetchPhotos(); 
@@ -127,6 +129,19 @@ export default function GalleryPage() {
     }
   };
 
+  const handleMovePhoto = async () => {
+    if (!movingPhoto) return;
+    const loadingToast = toast.loading("Đang chuyển...");
+    try {
+      await movePhotoToAlbum(movingPhoto.id, targetAlbumMove);
+      toast.success("Chuyển thành công!", { id: loadingToast });
+      setMovingPhoto(null);
+      fetchPhotos();
+    } catch (error: any) {
+      toast.error("Lỗi: " + error.message, { id: loadingToast });
+    }
+  };
+
   const handleAlbumClick = (name: string) => {
     setActiveAlbum(name);
     if (name !== 'Tất cả') {
@@ -143,7 +158,7 @@ export default function GalleryPage() {
   const allAlbumNames = ['Chung', ...albums.map(a => a.name)];
 
   return (
-    <div className="max-w-7xl mx-auto animate-fade-in flex flex-col h-full">
+    <div className="max-w-7xl mx-auto animate-fade-in flex flex-col h-full relative">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Kỷ niệm</h1>
@@ -174,7 +189,7 @@ export default function GalleryPage() {
 
       <div className="flex flex-col md:flex-row gap-8 items-start h-full">
         {/* Sidebar Album */}
-        <div className="w-full md:w-64 flex flex-col gap-2 bg-white p-4 rounded-3xl shadow-sm border border-slate-100 shrink-0 sticky top-6">
+        <div className="w-full md:w-64 flex flex-col gap-2 bg-white p-4 rounded-3xl shadow-sm border border-slate-100 shrink-0 md:sticky md:top-6">
           <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-2">Thư viện ảnh</h3>
           
           <button
@@ -266,14 +281,21 @@ export default function GalleryPage() {
                 <div key={photo.id} className="group relative aspect-square bg-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all hover:-translate-y-1">
                   <img src={photo.publicUrl} alt={photo.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
                   
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                    <p className="text-white text-sm font-bold truncate mb-3 drop-shadow-md">{photo.title}</p>
-                    <div className="flex justify-between items-center">
-                      <button onClick={() => setSelectedPhoto(photo.publicUrl)} className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-xl text-white transition-colors" title="Phóng to">
-                        <Maximize2 size={18} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                    <p className="text-white text-xs font-bold truncate mb-3 drop-shadow-md">{photo.title}</p>
+                    <div className="flex justify-between items-center gap-2">
+                      <button onClick={() => setSelectedPhoto(photo.publicUrl)} className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center" title="Phóng to">
+                        <Maximize2 size={16} />
                       </button>
-                      <button onClick={() => handleDelete(photo.id, photo.url)} className="p-2 bg-red-500/80 hover:bg-red-500 backdrop-blur-md rounded-xl text-white transition-colors" title="Xóa ảnh">
-                        <Trash2 size={18} />
+                      <button 
+                        onClick={() => { setTargetAlbumMove(photo.album || 'Chung'); setMovingPhoto(photo); }} 
+                        className="p-2 bg-blue-500/80 hover:bg-blue-500 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center" 
+                        title="Chuyển album"
+                      >
+                        <FolderInput size={16} />
+                      </button>
+                      <button onClick={() => handleDelete(photo.id, photo.url)} className="p-2 bg-red-500/80 hover:bg-red-500 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center" title="Xóa ảnh">
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </div>
@@ -283,6 +305,34 @@ export default function GalleryPage() {
           )}
         </div>
       </div>
+
+      {/* Modal Chuyển Album */}
+      {movingPhoto && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] p-8 w-full max-w-sm shadow-2xl scale-100 animate-in zoom-in-95">
+            <div className="w-14 h-14 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 border border-blue-100">
+              <FolderInput size={28} />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-800 mb-1">Chuyển ảnh</h3>
+            <p className="text-slate-500 text-sm font-medium mb-6 truncate">Chuyển "{movingPhoto.title}" sang album:</p>
+            
+            <select 
+              value={targetAlbumMove}
+              onChange={e => setTargetAlbumMove(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 text-slate-700 font-bold text-sm rounded-xl py-3 px-4 outline-none mb-6 focus:ring-2 focus:ring-blue-100"
+            >
+              {allAlbumNames.map(album => (
+                <option key={album} value={album}>{album}</option>
+              ))}
+            </select>
+            
+            <div className="flex gap-3">
+              <button onClick={() => setMovingPhoto(null)} className="flex-1 bg-white hover:bg-slate-50 text-slate-500 font-bold py-3 rounded-xl border border-slate-200 transition-colors">Hủy bỏ</button>
+              <button onClick={handleMovePhoto} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-600/30 transition-colors">Xác nhận</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lightbox Phóng to ảnh */}
       {selectedPhoto && (
