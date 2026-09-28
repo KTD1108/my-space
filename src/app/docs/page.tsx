@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Upload, Trash2, ExternalLink, File, FileText, Folder, FolderPlus, FileStack, X } from "lucide-react";
+import { Upload, Trash2, ExternalLink, File, FileText, Folder, FolderPlus, FileStack, X, Link as LinkIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { getDocs, getUploadUrl, addRecord, deleteRecord, getCategories, addCategory, deleteCategory } from "@/app/actions/data";
 
@@ -14,6 +14,11 @@ export default function DocsPage() {
   
   const [isAddingCat, setIsAddingCat] = useState(false);
   const [newCatName, setNewCatName] = useState('');
+
+  // Trạng thái cho Thêm Link
+  const [isAddingLink, setIsAddingLink] = useState(false);
+  const [linkTitle, setLinkTitle] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
 
   useEffect(() => { 
     fetchDocs(); 
@@ -110,13 +115,42 @@ export default function DocsPage() {
     }
   };
 
+  const handleAddLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkUrl.trim()) return;
+
+    let finalUrl = linkUrl.trim();
+    if (!finalUrl.startsWith('http')) {
+      finalUrl = 'https://' + finalUrl;
+    }
+
+    const loadingToast = toast.loading(`Đang lưu đường dẫn vào ${uploadCategory}...`);
+    
+    try {
+      await addRecord('documents', { 
+        title: linkTitle.trim() || finalUrl, 
+        type: 'link', 
+        url: finalUrl,
+        category: uploadCategory
+      });
+
+      toast.success("Đã lưu đường dẫn!", { id: loadingToast });
+      setLinkTitle('');
+      setLinkUrl('');
+      setIsAddingLink(false);
+      fetchDocs();
+    } catch (error: any) {
+      toast.error("Lỗi khi lưu: " + error.message, { id: loadingToast });
+    }
+  };
+
   const handleDeleteDoc = async (id: string, path: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này vĩnh viễn?")) return;
     
     const loadingToast = toast.loading("Đang xóa...");
     try {
       await deleteRecord('documents', id, path);
-      toast.success("Đã xóa tài liệu!", { id: loadingToast });
+      toast.success("Đã xóa!", { id: loadingToast });
       fetchDocs();
     } catch (error: any) {
       toast.error("Lỗi khi xóa: " + error.message, { id: loadingToast });
@@ -125,7 +159,6 @@ export default function DocsPage() {
 
   const handleCategoryClick = (name: string) => {
     setActiveCategory(name);
-    // Tự động đồng bộ: Đứng ở thư mục nào thì Tải lên thư mục đó
     if (name !== 'Tất cả') {
       setUploadCategory(name);
     } else {
@@ -137,42 +170,77 @@ export default function DocsPage() {
     ? docs 
     : docs.filter(doc => (doc.category || 'Chung') === activeCategory);
 
-  // Gộp danh sách chủ đề mặc định và tùy chỉnh
   const allCategoryNames = ['Chung', ...categories.map(c => c.name)];
 
   return (
     <div className="max-w-6xl mx-auto animate-fade-in flex flex-col h-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Tài liệu & Bài giảng</h1>
           <p className="text-slate-500 mt-1 font-medium">Lưu trữ và phân loại kiến thức của bạn</p>
         </div>
         
-        <div className="flex items-center gap-3 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
           <select 
             value={uploadCategory} 
             onChange={(e) => setUploadCategory(e.target.value)}
-            className="bg-slate-50 border-none text-slate-600 font-bold text-sm rounded-xl py-2.5 px-4 outline-none cursor-pointer focus:ring-2 focus:ring-blue-100"
+            className="bg-slate-50 border-none text-slate-600 font-bold text-sm rounded-xl py-2.5 px-4 outline-none cursor-pointer focus:ring-2 focus:ring-blue-100 min-w-[120px]"
           >
             {allCategoryNames.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
 
+          <button 
+            onClick={() => setIsAddingLink(!isAddingLink)}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2"
+          >
+            <LinkIcon size={18} /> Thêm Link
+          </button>
+
           <label className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-blue-600/20 cursor-pointer flex items-center gap-2">
             {uploading ? (
               <span className="animate-pulse flex items-center gap-2"><Upload size={18} /> Đang tải...</span>
             ) : (
-              <><Upload size={18} /> Tải lên</>
+              <><Upload size={18} /> Tải File</>
             )}
             <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.ppt,.pptx" onChange={handleUpload} disabled={uploading} />
           </label>
         </div>
       </div>
 
+      {isAddingLink && (
+        <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl mb-8 flex flex-col sm:flex-row gap-3 items-center shadow-sm animate-in fade-in slide-in-from-top-2">
+          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-blue-500 shrink-0 shadow-sm border border-blue-100">
+            <LinkIcon size={18} />
+          </div>
+          <form onSubmit={handleAddLink} className="flex-1 flex flex-col sm:flex-row gap-3 w-full">
+            <input 
+              type="text" 
+              placeholder="Tiêu đề (Tùy chọn)" 
+              value={linkTitle}
+              onChange={e => setLinkTitle(e.target.value)}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-200 text-sm font-medium"
+            />
+            <input 
+              type="text" 
+              placeholder="Dán đường dẫn (https://...)" 
+              required
+              value={linkUrl}
+              onChange={e => setLinkUrl(e.target.value)}
+              className="flex-[2] px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-200 text-sm font-medium"
+            />
+            <div className="flex gap-2">
+              <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm">Lưu</button>
+              <button type="button" onClick={() => setIsAddingLink(false)} className="bg-white hover:bg-slate-100 text-slate-500 px-4 py-2.5 rounded-xl font-bold text-sm border border-slate-200 transition-all">Hủy</button>
+            </div>
+          </form>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row gap-8 items-start">
         {/* Sidebar Thư mục */}
-        <div className="w-full md:w-64 flex flex-col gap-2 bg-white p-4 rounded-3xl shadow-sm border border-slate-100 shrink-0 sticky top-6">
+        <div className="w-full md:w-64 flex flex-col gap-2 bg-white p-4 rounded-3xl shadow-sm border border-slate-100 shrink-0 md:sticky md:top-6">
           <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-2">Thư viện</h3>
           
           <button
@@ -254,7 +322,7 @@ export default function DocsPage() {
             <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100 text-sm">
-                  <th className="p-5 font-bold text-slate-500">Tên tài liệu</th>
+                  <th className="p-5 font-bold text-slate-500">Tên tài liệu / Link</th>
                   <th className="p-5 font-bold text-slate-500 w-32">Chủ đề</th>
                   <th className="p-5 font-bold text-slate-500 w-32">Ngày đăng</th>
                   <th className="p-5 font-bold text-slate-500 text-right w-24">Hành động</th>
@@ -273,8 +341,8 @@ export default function DocsPage() {
                 ) : filteredDocs.map((doc) => (
                   <tr key={doc.id} className="hover:bg-blue-50/30 transition-colors group">
                     <td className="p-5 flex items-center gap-4 text-slate-700 font-bold">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 shadow-sm border border-blue-100/50 shrink-0">
-                        {doc.type === 'pdf' ? <File size={20} /> : <FileText size={20} />}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm border shrink-0 ${doc.type === 'link' ? 'bg-indigo-50 text-indigo-500 border-indigo-100/50' : 'bg-blue-50 text-blue-500 border-blue-100/50'}`}>
+                        {doc.type === 'link' ? <LinkIcon size={20} /> : (doc.type === 'pdf' ? <File size={20} /> : <FileText size={20} />)}
                       </div>
                       <span className="truncate max-w-sm block" title={doc.title}>{doc.title}</span>
                     </td>
@@ -284,7 +352,7 @@ export default function DocsPage() {
                     <td className="p-5 text-slate-400 text-sm font-medium">{new Date(doc.created_at).toLocaleDateString('vi-VN')}</td>
                     <td className="p-5 text-right">
                       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <a href={doc.publicUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors" title="Xem/Tải">
+                        <a href={doc.publicUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors" title="Xem/Truy cập">
                           <ExternalLink size={18} />
                         </a>
                         <button onClick={() => handleDeleteDoc(doc.id, doc.url)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="Xóa">

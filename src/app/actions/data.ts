@@ -27,7 +27,9 @@ export async function addRecord(table: string, payload: any) {
 
 export async function deleteRecord(table: string, id: string, path: string) {
   const supabase = await createClient();
-  await supabaseAdmin.storage.from('personal_files').remove([path]);
+  if (path && !path.startsWith('http')) {
+    await supabaseAdmin.storage.from('personal_files').remove([path]);
+  }
   await supabase.from(table).delete().eq('id', id);
 }
 
@@ -54,7 +56,12 @@ export async function getDocs() {
   const supabase = await createClient();
   const { data } = await supabase.from('documents').select('*').order('created_at', { ascending: false });
   if (!data) return [];
-  return Promise.all(data.map(async (d) => ({ ...d, publicUrl: await generateSignedUrl(d.url) })));
+  return Promise.all(data.map(async (d) => {
+    if (d.type === 'link') {
+      return { ...d, publicUrl: d.url };
+    }
+    return { ...d, publicUrl: await generateSignedUrl(d.url) };
+  }));
 }
 
 export async function getDashboardStats() {
