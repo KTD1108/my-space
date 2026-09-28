@@ -35,11 +35,15 @@ export default function DocsPage() {
     if (!doc.ai_summary) {
       try {
         const { generateDocSummary } = await import('@/app/actions/ai');
-        const sum = await generateDocSummary(doc.id, doc.type, doc.type === 'link' ? doc.url : doc.url); // doc.url is the path for pdf
-        setSummaryModal(prev => ({ ...prev, content: sum, loading: false }));
-        fetchDocs(); // reload docs to get saved summary
+        const resAi = await generateDocSummary(doc.id, doc.type, doc.type === 'link' ? doc.url : doc.url); // doc.url is the path for pdf
+        if (resAi.success) {
+          setSummaryModal(prev => ({ ...prev, content: resAi.data || '', loading: false }));
+          fetchDocs(); // reload docs to get saved summary
+        } else {
+          setSummaryModal(prev => ({ ...prev, content: 'Lỗi AI: ' + resAi.error, loading: false }));
+        }
       } catch (e: any) {
-        setSummaryModal(prev => ({ ...prev, content: 'Lỗi: ' + e.message, loading: false }));
+        setSummaryModal(prev => ({ ...prev, content: 'Lỗi Client: ' + e.message, loading: false }));
       }
     }
   };
@@ -129,9 +133,9 @@ export default function DocsPage() {
       try {
         toast.loading(`Trợ lý AI đang đọc và phân loại tệp...`, { id: loadingToast });
         const { categorizeDoc } = await import('@/app/actions/ai');
-        const guessedCat = await categorizeDoc(file.name);
-        if (guessedCat && guessedCat.length < 20) {
-          autoCategory = guessedCat;
+        const resAi = await categorizeDoc(file.name);
+        if (resAi.success && resAi.data && resAi.data.length < 20) {
+          autoCategory = resAi.data;
         }
       } catch (aiError) {
         console.error("AI Error:", aiError);
@@ -179,9 +183,9 @@ export default function DocsPage() {
       try {
         toast.loading(`Trợ lý AI đang phân loại liên kết...`, { id: loadingToast });
         const { categorizeDoc } = await import('@/app/actions/ai');
-        const guessedCat = await categorizeDoc(linkTitle || finalUrl);
-        if (guessedCat && guessedCat.length < 20) {
-          autoCategory = guessedCat;
+        const resAi = await categorizeDoc(linkTitle || finalUrl);
+        if (resAi.success && resAi.data && resAi.data.length < 20) {
+          autoCategory = resAi.data;
         }
       } catch (aiError) {
         console.error("AI Error:", aiError);

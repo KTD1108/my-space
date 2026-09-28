@@ -47,8 +47,8 @@ export default function MusicPage() {
       try {
         toast.loading("AI đang phân tích thể loại bài hát...", { id: loadingToast });
         const { guessMusicGenre } = await import('@/app/actions/ai');
-        const guessed = await guessMusicGenre(file.name);
-        if (guessed && guessed.length < 20) aiGenre = guessed;
+        const resAi = await guessMusicGenre(file.name);
+        if (resAi.success && resAi.data && resAi.data.length < 20) aiGenre = resAi.data;
       } catch (aiErr) {
         console.error(aiErr);
       }
@@ -89,8 +89,8 @@ export default function MusicPage() {
       try {
         toast.loading("AI đang phân tích thể loại...", { id: loadingToast });
         const { guessMusicGenre } = await import('@/app/actions/ai');
-        const guessed = await guessMusicGenre(baseTitle + " " + finalUrl);
-        if (guessed && guessed.length < 20) aiGenre = guessed;
+        const resAi = await guessMusicGenre(baseTitle + " " + finalUrl);
+        if (resAi.success && resAi.data && resAi.data.length < 20) aiGenre = resAi.data;
       } catch (aiErr) {
         console.error(aiErr);
       }

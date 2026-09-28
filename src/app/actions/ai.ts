@@ -20,9 +20,9 @@ export async function guessMusicGenre(songTitle: string) {
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return (response.text || '').trim().replace(/[\[\]"']/g, ''); 
+    return { success: true, data: (response.text || '').trim().replace(/[\[\]"']/g, '') }; 
   } catch (error: any) {
-    throw new Error(error.message);
+    return { success: false, error: error.message };
   }
 }
 
@@ -35,9 +35,9 @@ export async function categorizeDoc(docTitle: string) {
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return (response.text || '').trim().replace(/[\[\]"']/g, '');
+    return { success: true, data: (response.text || '').trim().replace(/[\[\]"']/g, '') };
   } catch (error: any) {
-    throw new Error(error.message);
+    return { success: false, error: error.message };
   }
 }
 
@@ -101,8 +101,8 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
     const supabase = await createClient();
     await supabase.from('documents').update({ ai_summary: summary }).eq('id', docId);
 
-    return summary;
+    return { success: true, data: summary };
   } catch (error: any) {
-    throw new Error(error.message);
+    return { success: false, error: error.message };
   }
 }
