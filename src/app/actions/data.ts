@@ -27,9 +27,11 @@ export async function addRecord(table: string, payload: any) {
 
 export async function deleteRecord(table: string, id: string, path: string) {
   const supabase = await createClient();
+  
   if (path && !path.startsWith('http')) {
     await supabaseAdmin.storage.from('personal_files').remove([path]);
   }
+  
   await supabase.from(table).delete().eq('id', id);
 }
 
@@ -79,7 +81,7 @@ export async function getDashboardStats() {
   };
 }
 
-// ---- API QUẢN LÝ CHỦ ĐỀ ----
+// ---- API QUẢN LÝ CHỦ ĐỀ TÀI LIỆU ----
 export async function getCategories() {
   const supabase = await createClient();
   const { data } = await supabase.from('categories').select('*').order('created_at', { ascending: true });
@@ -89,7 +91,6 @@ export async function getCategories() {
 export async function addCategory(name: string) {
   const user = await getUser();
   const supabase = await createClient();
-  // Không cho phép trùng tên
   const { data: existing } = await supabase.from('categories').select('id').eq('name', name).eq('user_id', user.id);
   if (existing && existing.length > 0) throw new Error('Chủ đề này đã tồn tại!');
   
@@ -99,8 +100,30 @@ export async function addCategory(name: string) {
 
 export async function deleteCategory(id: string, name: string) {
   const supabase = await createClient();
-  // Đưa toàn bộ tài liệu trong thư mục bị xóa về thư mục "Chung"
   await supabase.from('documents').update({ category: 'Chung' }).eq('category', name);
-  // Xóa thư mục
   await supabase.from('categories').delete().eq('id', id);
+}
+
+// ---- API QUẢN LÝ ALBUM ẢNH ----
+export async function getAlbums() {
+  const supabase = await createClient();
+  const { data } = await supabase.from('albums').select('*').order('created_at', { ascending: true });
+  return data || [];
+}
+
+export async function addAlbum(name: string) {
+  const user = await getUser();
+  const supabase = await createClient();
+  const { data: existing } = await supabase.from('albums').select('id').eq('name', name).eq('user_id', user.id);
+  if (existing && existing.length > 0) throw new Error('Album này đã tồn tại!');
+  
+  const { error } = await supabase.from('albums').insert([{ name, user_id: user.id }]);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteAlbum(id: string, name: string) {
+  const supabase = await createClient();
+  // Đưa ảnh về album Chung nếu xóa album tùy chỉnh
+  await supabase.from('photos').update({ album: 'Chung' }).eq('album', name);
+  await supabase.from('albums').delete().eq('id', id);
 }
