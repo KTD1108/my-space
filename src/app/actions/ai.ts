@@ -51,7 +51,9 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       const html = await res.text();
       contentToSummarize = html.replace(/<[^>]*>?/gm, ' ').substring(0, 15000); 
     } else if (docType === 'pdf') {
-      const pdfParse = require('pdf-parse');
+      const pdfParseModule = require('pdf-parse');
+      const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule.default;
+      
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
       if (!urlData?.signedUrl) throw new Error("Không thể truy cập file PDF.");
       
@@ -61,7 +63,9 @@ export async function generateDocSummary(docId: string, docType: string, docUrl:
       const parsed = await pdfParse(Buffer.from(buffer));
       contentToSummarize = parsed.text.substring(0, 15000); 
     } else if (docType === 'docx') {
-      const mammoth = require('mammoth');
+      const mammothModule = require('mammoth');
+      const mammoth = typeof mammothModule.extractRawText === 'function' ? mammothModule : mammothModule.default;
+      
       const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
       if (!urlData?.signedUrl) throw new Error("Không thể truy cập file Word.");
       
