@@ -199,6 +199,12 @@ export async function updateScheduleStatus(id: string, is_completed: boolean) {
   if (error) throw new Error(error.message);
 }
 
+export async function updateSchedule(id: string, payload: any) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('study_schedules').update(payload).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteSchedule(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from('study_schedules').delete().eq('id', id);

@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle, Trash2, Plus, X, ListTodo, AlertCircle, ChevronLeft, ChevronRight, LayoutList, CalendarDays } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle, Trash2, Plus, X, ListTodo, AlertCircle, ChevronLeft, ChevronRight, LayoutList, CalendarDays, Edit2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { getSchedules, addSchedule, updateScheduleStatus, deleteSchedule } from "@/app/actions/data";
+import { getSchedules, addSchedule, updateScheduleStatus, deleteSchedule, updateSchedule } from "@/app/actions/data";
 
 export default function SchedulePage() {
   const [schedules, setSchedules] = useState<any[]>([]);
@@ -10,9 +10,11 @@ export default function SchedulePage() {
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('calendar');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
-  // Trạng thái Form thêm lịch & Xem chi tiết ngày
+  // Trạng thái Form thêm/sửa lịch & Xem chi tiết ngày
   const [viewingDay, setViewingDay] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -44,24 +46,50 @@ export default function SchedulePage() {
     }
   };
 
-  const handleAddSchedule = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    setDate(new Date().toISOString().split('T')[0]);
+    setStartTime("08:00");
+    setEndTime("10:00");
+    setColor("blue");
+    setEditingId(null);
+  };
+
+  const openEditModal = (schedule: any) => {
+    setTitle(schedule.title);
+    setDescription(schedule.description || "");
+    setDate(schedule.date);
+    setStartTime(schedule.start_time.substring(0,5));
+    setEndTime(schedule.end_time.substring(0,5));
+    setColor(schedule.color);
+    setEditingId(schedule.id);
+    setIsAdding(true);
+  };
+
+  const handleSaveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const loadingToast = toast.loading("Đang lên lịch...");
-    try {
-      await addSchedule({
-        title,
-        description,
-        date,
-        start_time: startTime,
-        end_time: endTime,
-        color
-      });
+    const payload = {
+      title,
+      description,
+      date,
+      start_time: startTime,
+      end_time: endTime,
+      color
+    };
 
-      toast.success("Đã thêm lịch học!", { id: loadingToast });
-      setTitle("");
-      setDescription("");
+    const loadingToast = toast.loading(editingId ? "Đang cập nhật..." : "Đang lên lịch...");
+    try {
+      if (editingId) {
+        await updateSchedule(editingId, payload);
+        toast.success("Cập nhật thành công!", { id: loadingToast });
+      } else {
+        await addSchedule(payload);
+        toast.success("Đã thêm lịch học!", { id: loadingToast });
+      }
+      resetForm();
       setIsAdding(false);
       fetchSchedules();
     } catch (error: any) {
@@ -133,7 +161,7 @@ export default function SchedulePage() {
       cells.push(
         <div 
           key={day} 
-          onClick={() => setViewingDay(dateStr)} // SỬA ĐỔI: BẤM VÀO SẼ MỞ BẢNG CHI TIẾT NGÀY
+          onClick={() => setViewingDay(dateStr)} // MỞ BẢNG CHI TIẾT NGÀY
           className={`min-h-[120px] bg-white border rounded-2xl p-2 transition-all cursor-pointer group hover:shadow-md ${isToday ? 'border-blue-400 ring-2 ring-blue-100 ring-offset-1' : 'border-slate-200 hover:border-blue-300'}`}
         >
           <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-bold mb-1.5 ${isToday ? 'bg-blue-500 text-white shadow-sm shadow-blue-200' : 'text-slate-600 group-hover:text-blue-500'}`}>
@@ -203,7 +231,7 @@ export default function SchedulePage() {
           </div>
           
           <button 
-            onClick={() => setIsAdding(true)}
+            onClick={() => { resetForm(); setIsAdding(true); }}
             className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-blue-600/30 flex items-center gap-2 ml-2"
           >
             <Plus size={18} /> Thêm sự kiện
@@ -226,7 +254,7 @@ export default function SchedulePage() {
                 </div>
                 <h3 className="text-2xl font-extrabold text-slate-700 mb-2">Chưa có kế hoạch nào</h3>
                 <p className="text-slate-500 font-medium max-w-sm">Hãy tự tạo cho mình một lịch trình học tập để theo dõi tiến độ dễ dàng hơn.</p>
-                <button onClick={() => setIsAdding(true)} className="mt-6 text-blue-600 font-bold hover:underline">Bắt đầu lên lịch ngay</button>
+                <button onClick={() => { resetForm(); setIsAdding(true); }} className="mt-6 text-blue-600 font-bold hover:underline">Bắt đầu lên lịch ngay</button>
               </div>
             ) : (
               <div className="space-y-10">
@@ -273,7 +301,10 @@ export default function SchedulePage() {
                                     {schedule.description && <p className={`mt-2 text-sm font-medium ${schedule.is_completed ? 'text-slate-400' : 'text-slate-600'}`}>{schedule.description}</p>}
                                   </div>
                                 </div>
-                                <button onClick={() => handleDelete(schedule.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100 absolute right-4 top-1/2 -translate-y-1/2" title="Xóa"><Trash2 size={18} /></button>
+                                <div className="flex items-center gap-1 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all">
+                                  <button onClick={() => openEditModal(schedule)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all" title="Sửa"><Edit2 size={18} /></button>
+                                  <button onClick={() => handleDelete(schedule.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Xóa"><Trash2 size={18} /></button>
+                                </div>
                               </div>
                             </div>
                           );
@@ -312,7 +343,7 @@ export default function SchedulePage() {
                 (groupedSchedules[viewingDay] || []).map((schedule: any) => {
                   const col = colors.find(c => c.id === schedule.color) || colors[0];
                   return (
-                    <div key={schedule.id} className={`flex items-start justify-between p-4 rounded-2xl border transition-all ${schedule.is_completed ? 'bg-slate-50 border-slate-100 opacity-60' : `bg-white ${col.border}`}`}>
+                    <div key={schedule.id} className={`flex items-start justify-between p-4 rounded-2xl border transition-all group ${schedule.is_completed ? 'bg-slate-50 border-slate-100 opacity-60' : `bg-white ${col.border}`}`}>
                       <div className="flex items-start gap-3">
                         <button onClick={() => handleToggleStatus(schedule.id, schedule.is_completed)} className={`mt-0.5 transition-colors ${schedule.is_completed ? 'text-emerald-500' : 'text-slate-300 hover:text-emerald-400'}`}>
                           {schedule.is_completed ? <CheckCircle2 size={22} /> : <Circle size={22} />}
@@ -324,7 +355,11 @@ export default function SchedulePage() {
                           </span>
                         </div>
                       </div>
-                      <button onClick={() => handleDelete(schedule.id)} className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                      
+                      <div className="flex flex-col sm:flex-row gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setViewingDay(null); openEditModal(schedule); }} className="text-slate-300 hover:text-blue-500 hover:bg-blue-50 p-2 rounded-lg transition-colors" title="Sửa"><Edit2 size={16} /></button>
+                        <button onClick={() => handleDelete(schedule.id)} className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Xóa"><Trash2 size={16} /></button>
+                      </div>
                     </div>
                   );
                 })
@@ -332,7 +367,7 @@ export default function SchedulePage() {
             </div>
 
             <button 
-              onClick={() => { setDate(viewingDay); setViewingDay(null); setIsAdding(true); }}
+              onClick={() => { resetForm(); setDate(viewingDay); setViewingDay(null); setIsAdding(true); }}
               className="w-full bg-blue-50 text-blue-600 hover:bg-blue-100 py-3.5 rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
             >
               <Plus size={18} /> Thêm sự kiện mới
@@ -341,21 +376,23 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {/* MODAL THÊM LỊCH HỌC BẬT LÊN Ở GIỮA */}
+      {/* MODAL THÊM/SỬA LỊCH HỌC BẬT LÊN Ở GIỮA */}
       {isAdding && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl scale-100 animate-in zoom-in-95">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center">
-                  <CalendarIcon size={20} />
+                  {editingId ? <Edit2 size={20} /> : <CalendarIcon size={20} />}
                 </div>
-                <h3 className="font-extrabold text-slate-800 text-xl">Thêm Sự Kiện</h3>
+                <h3 className="font-extrabold text-slate-800 text-xl">
+                  {editingId ? "Sửa Sự Kiện" : "Thêm Sự Kiện"}
+                </h3>
               </div>
-              <button onClick={() => setIsAdding(false)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X size={20} /></button>
+              <button onClick={() => { setIsAdding(false); resetForm(); }} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X size={20} /></button>
             </div>
 
-            <form onSubmit={handleAddSchedule} className="space-y-4">
+            <form onSubmit={handleSaveSchedule} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tên công việc / Sự kiện</label>
                 <input 
@@ -412,7 +449,7 @@ export default function SchedulePage() {
               </div>
 
               <button type="submit" className="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold text-base transition-all shadow-lg shadow-blue-600/30">
-                Lưu sự kiện
+                {editingId ? "Cập nhật sự kiện" : "Lưu sự kiện"}
               </button>
             </form>
           </div>
