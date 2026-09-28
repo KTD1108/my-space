@@ -1,69 +1,111 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect } from "react";
+import { FileText, Music, Image as ImageIcon, HardDrive, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { getDashboardStats } from "@/app/actions/data";
 
 export default function Home() {
+  const [stats, setStats] = useState({ docs: 0, songs: 0, photos: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const statsData = await getDashboardStats();
+        setStats(statsData);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchStats();
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="max-w-6xl mx-auto">
+      <div className="mb-12">
+        <h1 className="text-4xl font-extrabold text-slate-800 mb-4 tracking-tight">Tổng quan hệ thống</h1>
+        <p className="text-lg text-slate-500 max-w-2xl">
+          Chào mừng trở lại! Hệ thống hiện đang chạy ở chế độ <strong>Bảo mật tuyệt đối (Cấp độ Server)</strong>.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        {/* Thẻ Tài Liệu */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+            <FileText size={24} />
+          </div>
+          <h3 className="text-slate-500 font-medium mb-1">Tài liệu học tập</h3>
+          <div className="text-3xl font-bold text-slate-800 flex items-baseline">
+            {loading ? <span className="text-slate-300">...</span> : stats.docs}
+            <span className="text-sm font-normal text-slate-400 ml-2">tệp</span>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Thẻ Nghe Nhạc */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-4">
+            <Music size={24} />
+          </div>
+          <h3 className="text-slate-500 font-medium mb-1">Bài hát yêu thích</h3>
+          <div className="text-3xl font-bold text-slate-800 flex items-baseline">
+            {loading ? <span className="text-slate-300">...</span> : stats.songs}
+            <span className="text-sm font-normal text-slate-400 ml-2">bài</span>
+          </div>
         </div>
-      </main>
+
+        {/* Thẻ Hình Ảnh */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 bg-pink-100 text-pink-600 rounded-xl flex items-center justify-center mb-4">
+            <ImageIcon size={24} />
+          </div>
+          <h3 className="text-slate-500 font-medium mb-1">Ảnh kỷ niệm</h3>
+          <div className="text-3xl font-bold text-slate-800 flex items-baseline">
+            {loading ? <span className="text-slate-300">...</span> : stats.photos}
+            <span className="text-sm font-normal text-slate-400 ml-2">ảnh</span>
+          </div>
+        </div>
+        
+        {/* Thẻ Tổng dung lượng */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl shadow-sm flex flex-col text-white hover:shadow-lg transition-shadow">
+          <div className="w-12 h-12 bg-slate-700/50 text-emerald-400 rounded-xl flex items-center justify-center mb-4">
+            <HardDrive size={24} />
+          </div>
+          <h3 className="text-slate-400 font-medium mb-1">Trạng thái dữ liệu</h3>
+          <div className="text-2xl font-bold text-white flex items-baseline mt-1">
+            <span className="text-emerald-400 mr-2 flex items-center gap-2">
+              <span className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></span> An toàn
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <h2 className="text-2xl font-bold text-slate-800 mb-6">Truy cập nhanh</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Link href="/docs" className="group bg-blue-50/50 p-6 rounded-2xl border border-blue-100 hover:bg-blue-50 transition-colors flex justify-between items-center">
+          <div>
+            <h4 className="font-semibold text-blue-900">Quản lý Tài liệu</h4>
+            <p className="text-sm text-blue-700/70 mt-1">Bảo mật cấp độ Server</p>
+          </div>
+          <ArrowRight className="text-blue-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-transform" />
+        </Link>
+        <Link href="/music" className="group bg-purple-50/50 p-6 rounded-2xl border border-purple-100 hover:bg-purple-50 transition-colors flex justify-between items-center">
+          <div>
+            <h4 className="font-semibold text-purple-900">Mở Trình phát nhạc</h4>
+            <p className="text-sm text-purple-700/70 mt-1">Phát qua Signed URL an toàn</p>
+          </div>
+          <ArrowRight className="text-purple-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-transform" />
+        </Link>
+        <Link href="/gallery" className="group bg-pink-50/50 p-6 rounded-2xl border border-pink-100 hover:bg-pink-50 transition-colors flex justify-between items-center">
+          <div>
+            <h4 className="font-semibold text-pink-900">Xem Thư viện ảnh</h4>
+            <p className="text-sm text-pink-700/70 mt-1">Chặn 100% truy cập ngoài</p>
+          </div>
+          <ArrowRight className="text-pink-400 group-hover:text-pink-600 group-hover:translate-x-1 transition-transform" />
+        </Link>
+      </div>
     </div>
   );
 }
