@@ -28,15 +28,15 @@ export default function MusicPage() {
     try {
       const fileName = `music/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       
-      const signedUploadUrl = await getUploadUrl(fileName);
-      const res = await fetch(signedUploadUrl, {
+      const { signedUrl, fullPath } = await getUploadUrl(fileName);
+      const res = await fetch(signedUrl, {
         method: 'PUT',
         body: file,
         headers: { 'Content-Type': file.type || 'audio/mpeg' }
       });
       if (!res.ok) throw new Error("Upload bị chặn");
 
-      await addRecord('songs', { title: file.name, url: fileName });
+      await addRecord('songs', { title: file.name, url: fullPath });
 
       toast.success("Thêm bài hát thành công!", { id: loadingToast });
       fetchSongs();

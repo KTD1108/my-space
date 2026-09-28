@@ -31,10 +31,10 @@ export default function DocsPage() {
       const fileName = `docs/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
       // 1. Lấy URL được ký điện tử từ Máy chủ
-      const signedUploadUrl = await getUploadUrl(fileName);
+      const { signedUrl, fullPath } = await getUploadUrl(fileName);
 
       // 2. Tải trực tiếp lên theo đường dẫn đã được Máy chủ bảo lãnh
-      const res = await fetch(signedUploadUrl, {
+      const res = await fetch(signedUrl, {
         method: 'PUT',
         body: file,
         headers: { 'Content-Type': file.type || 'application/octet-stream' }
@@ -42,7 +42,7 @@ export default function DocsPage() {
       if (!res.ok) throw new Error("Tải lên thất bại do mạng hoặc bị chặn");
 
       // 3. Ghi thông tin vào CSDL qua Máy chủ
-      await addRecord('documents', { title: file.name, type: fileExt || 'unknown', url: fileName });
+      await addRecord('documents', { title: file.name, type: fileExt || 'unknown', url: fullPath });
 
       toast.success("Tải tài liệu thành công!", { id: loadingToast });
       fetchDocs();

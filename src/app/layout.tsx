@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "./ClientLayout";
 
-const inter = Inter({ subsets: ["latin"] });
+// Sử dụng font Nunito siêu mềm mại và bo tròn
+const nunito = Nunito({ subsets: ["vietnamese"], weight: ["400", "600", "700", "800"] });
 
 export const metadata: Metadata = {
-  title: "Không Gian Cá Nhân | Pro",
-  description: "Hệ thống quản lý dữ liệu cá nhân cao cấp",
+  title: "Góc Nhỏ Của Tôi ✨",
+  description: "Không gian lưu giữ kỷ niệm",
 };
 
 export default function RootLayout({
@@ -17,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
-      <body className={`${inter.className} bg-slate-50 overflow-hidden`}>
+      <body className={`${nunito.className} bg-[#F9FAFB] overflow-hidden`}>
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

@@ -1,14 +1,34 @@
 "use client";
 import { useState, useEffect } from "react";
-import { FileText, Music, Image as ImageIcon, HardDrive, ArrowRight } from "lucide-react";
+import { BookHeart, Headphones, Camera, Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getDashboardStats } from "@/app/actions/data";
+import { createClient } from "@/utils/supabase/client";
 
 export default function Home() {
   const [stats, setStats] = useState({ docs: 0, songs: 0, photos: 0 });
   const [loading, setLoading] = useState(true);
+  const [greeting, setGreeting] = useState("Chào bạn");
+  const [userName, setUserName] = useState("người lạ");
 
   useEffect(() => {
+    // 1. Tạo lời chào dựa theo thời gian thực
+    const hour = new Date().getHours();
+    if (hour < 11) setGreeting("Chào buổi sáng");
+    else if (hour < 15) setGreeting("Chào buổi trưa");
+    else if (hour < 18) setGreeting("Chào buổi chiều");
+    else setGreeting("Buổi tối an lành");
+
+    // 2. Lấy tên user
+    async function fetchUser() {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getUser();
+      if (data?.user?.email) {
+        setUserName(data.user.email.split('@')[0]);
+      }
+    }
+
+    // 3. Lấy dữ liệu
     async function fetchStats() {
       try {
         const statsData = await getDashboardStats();
@@ -19,92 +39,77 @@ export default function Home() {
         setLoading(false);
       }
     }
+
+    fetchUser();
     fetchStats();
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-12">
-        <h1 className="text-4xl font-extrabold text-slate-800 mb-4 tracking-tight">Tổng quan hệ thống</h1>
-        <p className="text-lg text-slate-500 max-w-2xl">
-          Chào mừng trở lại! Hệ thống hiện đang chạy ở chế độ <strong>Bảo mật tuyệt đối (Cấp độ Server)</strong>.
+    <div className="max-w-5xl mx-auto animate-fade-in">
+      <div className="mb-14">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-sm mb-6 text-sm font-bold text-slate-500">
+          <Sparkles size={16} className="text-yellow-400" /> Ngày mới vui vẻ!
+        </div>
+        <h1 className="text-5xl font-extrabold text-slate-800 mb-4 tracking-tight capitalize">
+          {greeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">{userName}</span> 👋
+        </h1>
+        <p className="text-xl text-slate-500 font-medium">
+          Hôm nay của bạn thế nào? Dưới đây là những kỷ niệm bạn đang lưu giữ.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        {/* Thẻ Tài Liệu */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col hover:shadow-md transition-shadow">
-          <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
-            <FileText size={24} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+        {/* Thẻ Hình Ảnh (Friendly) */}
+        <div className="bg-white p-8 rounded-[2rem] shadow-sm hover:shadow-xl transition-all border border-slate-100/50 flex flex-col group hover:-translate-y-1 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-pink-100 rounded-bl-[100px] -z-10 transition-transform group-hover:scale-110"></div>
+          <div className="w-14 h-14 bg-pink-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-pink-500/30">
+            <Camera size={28} />
           </div>
-          <h3 className="text-slate-500 font-medium mb-1">Tài liệu học tập</h3>
-          <div className="text-3xl font-bold text-slate-800 flex items-baseline">
-            {loading ? <span className="text-slate-300">...</span> : stats.docs}
-            <span className="text-sm font-normal text-slate-400 ml-2">tệp</span>
-          </div>
-        </div>
-
-        {/* Thẻ Nghe Nhạc */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col hover:shadow-md transition-shadow">
-          <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-4">
-            <Music size={24} />
-          </div>
-          <h3 className="text-slate-500 font-medium mb-1">Bài hát yêu thích</h3>
-          <div className="text-3xl font-bold text-slate-800 flex items-baseline">
-            {loading ? <span className="text-slate-300">...</span> : stats.songs}
-            <span className="text-sm font-normal text-slate-400 ml-2">bài</span>
-          </div>
-        </div>
-
-        {/* Thẻ Hình Ảnh */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col hover:shadow-md transition-shadow">
-          <div className="w-12 h-12 bg-pink-100 text-pink-600 rounded-xl flex items-center justify-center mb-4">
-            <ImageIcon size={24} />
-          </div>
-          <h3 className="text-slate-500 font-medium mb-1">Ảnh kỷ niệm</h3>
-          <div className="text-3xl font-bold text-slate-800 flex items-baseline">
+          <h3 className="text-slate-400 font-bold mb-1 text-sm uppercase tracking-wider">Khoảnh khắc</h3>
+          <div className="text-4xl font-extrabold text-slate-800 flex items-baseline">
             {loading ? <span className="text-slate-300">...</span> : stats.photos}
-            <span className="text-sm font-normal text-slate-400 ml-2">ảnh</span>
+            <span className="text-base font-bold text-slate-400 ml-2">bức ảnh</span>
+          </div>
+        </div>
+
+        {/* Thẻ Nghe Nhạc (Friendly) */}
+        <div className="bg-white p-8 rounded-[2rem] shadow-sm hover:shadow-xl transition-all border border-slate-100/50 flex flex-col group hover:-translate-y-1 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100 rounded-bl-[100px] -z-10 transition-transform group-hover:scale-110"></div>
+          <div className="w-14 h-14 bg-purple-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-purple-500/30">
+            <Headphones size={28} />
+          </div>
+          <h3 className="text-slate-400 font-bold mb-1 text-sm uppercase tracking-wider">Giai điệu</h3>
+          <div className="text-4xl font-extrabold text-slate-800 flex items-baseline">
+            {loading ? <span className="text-slate-300">...</span> : stats.songs}
+            <span className="text-base font-bold text-slate-400 ml-2">bài hát</span>
           </div>
         </div>
         
-        {/* Thẻ Tổng dung lượng */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-2xl shadow-sm flex flex-col text-white hover:shadow-lg transition-shadow">
-          <div className="w-12 h-12 bg-slate-700/50 text-emerald-400 rounded-xl flex items-center justify-center mb-4">
-            <HardDrive size={24} />
+        {/* Thẻ Tài Liệu (Friendly) */}
+        <div className="bg-white p-8 rounded-[2rem] shadow-sm hover:shadow-xl transition-all border border-slate-100/50 flex flex-col group hover:-translate-y-1 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100 rounded-bl-[100px] -z-10 transition-transform group-hover:scale-110"></div>
+          <div className="w-14 h-14 bg-blue-500 text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-blue-500/30">
+            <BookHeart size={28} />
           </div>
-          <h3 className="text-slate-400 font-medium mb-1">Trạng thái dữ liệu</h3>
-          <div className="text-2xl font-bold text-white flex items-baseline mt-1">
-            <span className="text-emerald-400 mr-2 flex items-center gap-2">
-              <span className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse"></span> An toàn
-            </span>
+          <h3 className="text-slate-400 font-bold mb-1 text-sm uppercase tracking-wider">Hành trang</h3>
+          <div className="text-4xl font-extrabold text-slate-800 flex items-baseline">
+            {loading ? <span className="text-slate-300">...</span> : stats.docs}
+            <span className="text-base font-bold text-slate-400 ml-2">tài liệu</span>
           </div>
         </div>
       </div>
 
-      <h2 className="text-2xl font-bold text-slate-800 mb-6">Truy cập nhanh</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Link href="/docs" className="group bg-blue-50/50 p-6 rounded-2xl border border-blue-100 hover:bg-blue-50 transition-colors flex justify-between items-center">
-          <div>
-            <h4 className="font-semibold text-blue-900">Quản lý Tài liệu</h4>
-            <p className="text-sm text-blue-700/70 mt-1">Bảo mật cấp độ Server</p>
-          </div>
-          <ArrowRight className="text-blue-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-transform" />
-        </Link>
-        <Link href="/music" className="group bg-purple-50/50 p-6 rounded-2xl border border-purple-100 hover:bg-purple-50 transition-colors flex justify-between items-center">
-          <div>
-            <h4 className="font-semibold text-purple-900">Mở Trình phát nhạc</h4>
-            <p className="text-sm text-purple-700/70 mt-1">Phát qua Signed URL an toàn</p>
-          </div>
-          <ArrowRight className="text-purple-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-transform" />
-        </Link>
-        <Link href="/gallery" className="group bg-pink-50/50 p-6 rounded-2xl border border-pink-100 hover:bg-pink-50 transition-colors flex justify-between items-center">
-          <div>
-            <h4 className="font-semibold text-pink-900">Xem Thư viện ảnh</h4>
-            <p className="text-sm text-pink-700/70 mt-1">Chặn 100% truy cập ngoài</p>
-          </div>
-          <ArrowRight className="text-pink-400 group-hover:text-pink-600 group-hover:translate-x-1 transition-transform" />
-        </Link>
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[2rem] p-8 md:p-10 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between text-white">
+        <div className="absolute top-[-50%] right-[-10%] w-[500px] h-[500px] bg-gradient-to-b from-white/10 to-transparent rounded-full pointer-events-none blur-3xl"></div>
+        <div className="z-10 mb-6 md:mb-0">
+          <h2 className="text-2xl font-extrabold mb-2">Thêm những điều mới mẻ?</h2>
+          <p className="text-slate-300 font-medium max-w-md">Cuộc sống luôn có những khoảnh khắc đáng nhớ. Đừng ngần ngại lưu lại chúng nhé!</p>
+        </div>
+        <div className="flex gap-4 z-10 w-full md:w-auto">
+          <Link href="/gallery" className="bg-white text-slate-900 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:scale-105 transition-transform shadow-lg">
+            Đăng ảnh ngay <ArrowRight size={18} />
+          </Link>
+        </div>
       </div>
     </div>
   );

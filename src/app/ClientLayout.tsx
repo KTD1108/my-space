@@ -1,54 +1,72 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import { Home, FileText, Music, Image as ImageIcon, Menu, X, LogOut } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 import { logout } from "./login/actions";
+import { createClient } from "@/utils/supabase/client";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function getUser() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || "Bạn");
+      }
+    }
+    if (pathname !== '/login') getUser();
+  }, [pathname]);
 
   const navItems = [
-    { name: "Tổng quan", href: "/", icon: <Home size={20} /> },
-    { name: "Tài liệu", href: "/docs", icon: <FileText size={20} /> },
-    { name: "Nghe nhạc", href: "/music", icon: <Music size={20} /> },
-    { name: "Thư viện ảnh", href: "/gallery", icon: <ImageIcon size={20} /> },
+    { name: "Nhà của tôi", href: "/", icon: <Home size={22} /> },
+    { name: "Kỷ niệm", href: "/gallery", icon: <ImageIcon size={22} /> },
+    { name: "Giai điệu", href: "/music", icon: <Music size={22} /> },
+    { name: "Học tập", href: "/docs", icon: <FileText size={22} /> },
   ];
 
-  // Nếu đang ở trang Đăng nhập, ẩn Sidebar đi
   if (pathname === "/login") {
     return (
-      <div className="flex h-screen w-full font-sans">
-        <Toaster position="top-right" toastOptions={{ className: 'font-sans rounded-xl shadow-lg' }} />
+      <div className="flex h-screen w-full">
+        <Toaster position="top-center" toastOptions={{ className: 'rounded-2xl shadow-xl font-bold' }} />
         {children}
       </div>
     );
   }
 
+  // Tên hiển thị thân thiện (Cắt phần trước @gmail.com)
+  const displayName = userEmail ? userEmail.split('@')[0] : "Bạn";
+  const avatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${displayName}&backgroundColor=ffd5dc,b6e3f4`;
+
   return (
-    <div className="flex h-screen w-full text-slate-800">
-      <Toaster position="top-right" toastOptions={{ className: 'font-sans rounded-xl shadow-lg' }} />
+    <div className="flex h-screen w-full text-slate-700 bg-[#F9FAFB]">
+      <Toaster position="top-center" toastOptions={{ className: 'rounded-2xl shadow-xl font-bold border border-slate-100' }} />
       
-      {/* Nút mở menu trên Mobile */}
       <button 
-        className="md:hidden fixed top-4 right-4 z-50 bg-white p-2 rounded-xl shadow-md text-slate-700 border border-slate-100"
+        className="md:hidden fixed top-4 right-4 z-50 bg-white/80 backdrop-blur-md p-3 rounded-full shadow-lg text-slate-700 border border-slate-100"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       >
         {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* Thanh Sidebar (Tự ẩn hiện trên Mobile) */}
-      <aside className={`${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-40 w-72 h-full bg-slate-900 text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out`}>
-        <div className="p-8 pb-4">
-          <h2 className="text-2xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
-            MY SPACE
-          </h2>
-          <p className="text-xs text-slate-500 mt-2 font-medium tracking-wide uppercase">Dành cho nhiều người dùng</p>
+      {/* Sidebar Sáng, Kính mờ, Bo góc thanh thoát */}
+      <aside className={`${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-40 w-72 h-full bg-white/70 backdrop-blur-2xl border-r border-slate-200/60 flex flex-col transition-transform duration-300 ease-in-out`}>
+        
+        {/* Header thân thiện */}
+        <div className="p-8 pb-6 flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-tr from-pink-300 to-purple-400 rounded-2xl rotate-3 shadow-md"></div>
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Trạm Dừng Chân</h2>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-0.5">My Space ✨</p>
+          </div>
         </div>
         
-        <nav className="flex-1 px-4 space-y-2 mt-6">
+        <nav className="flex-1 px-5 space-y-1.5 mt-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -56,7 +74,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 key={item.href} 
                 href={item.href} 
                 onClick={() => setIsMobileMenuOpen(false)} 
-                className={`flex items-center gap-4 px-5 py-4 rounded-xl transition-all font-medium ${isActive ? "bg-blue-600 text-white shadow-lg shadow-blue-900/50 translate-x-1" : "hover:bg-slate-800/50 text-slate-400 hover:text-slate-100"}`}
+                className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold ${isActive ? "bg-slate-900 text-white shadow-md shadow-slate-900/20 scale-[1.02]" : "hover:bg-slate-100/80 text-slate-500 hover:text-slate-800"}`}
               >
                 {item.icon}
                 {item.name}
@@ -65,31 +83,40 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           })}
         </nav>
         
-        <div className="p-4 mt-auto border-t border-slate-800 mx-4 mb-2">
-          <button 
-            onClick={async () => {
-              await logout();
-            }}
-            className="flex items-center gap-4 px-5 py-3 w-full rounded-xl text-red-400 hover:text-white hover:bg-red-500/20 transition-all font-medium"
-          >
-            <LogOut size={20} />
-            Đăng xuất
-          </button>
-        </div>
-        
-        <div className="p-4 text-xs text-slate-500 text-center font-medium mb-2">
-          &copy; {new Date().getFullYear()} Coded with ❤️
+        {/* Khu vực Profile dễ thương ở đáy */}
+        <div className="p-5 mt-auto">
+          <div className="bg-slate-50 border border-slate-100 rounded-3xl p-4 flex flex-col gap-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <img src={avatarUrl} alt="Avatar" className="w-12 h-12 rounded-full shadow-sm bg-white border-2 border-white" />
+              <div className="overflow-hidden">
+                <p className="text-xs text-slate-400 font-bold">Chủ nhân</p>
+                <p className="text-sm font-extrabold text-slate-700 truncate capitalize">{displayName}</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => logout()}
+              className="flex justify-center items-center gap-2 px-4 py-2.5 w-full rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all font-bold text-sm border border-transparent hover:border-red-100"
+            >
+              <LogOut size={16} />
+              Rời đi
+            </button>
+          </div>
         </div>
       </aside>
       
-      {/* Lớp nền đen mờ khi mở menu trên Mobile */}
       {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
+        <div className="md:hidden fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-30 transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
       )}
 
-      {/* Khu vực nội dung chính */}
-      <main className="flex-1 overflow-y-auto p-6 md:p-10 bg-slate-50/50 h-full w-full">
-        {children}
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto p-6 md:p-12 h-full w-full relative">
+        {/* Decorative background blobs */}
+        <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-pink-400/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-[-10%] left-[-5%] w-96 h-96 bg-purple-400/10 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div className="relative z-10">
+          {children}
+        </div>
       </main>
     </div>
   );

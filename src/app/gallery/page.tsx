@@ -28,16 +28,16 @@ export default function GalleryPage() {
         const file = files[i];
         const fileName = `photos/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
-        const signedUploadUrl = await getUploadUrl(fileName);
+        const { signedUrl, fullPath } = await getUploadUrl(fileName);
         
-        const uploadRes = await fetch(signedUploadUrl, {
+        const uploadRes = await fetch(signedUrl, {
           method: 'PUT',
           body: file,
           headers: { 'Content-Type': file.type || 'image/jpeg' }
         });
         if (!uploadRes.ok) throw new Error("Tải ảnh thất bại do mạng hoặc bảo mật");
 
-        await addRecord('photos', { title: file.name, url: fileName });
+        await addRecord('photos', { title: file.name, url: fullPath });
       }
 
       toast.success(`Đã tải lên ${files.length} ảnh thành công!`, { id: loadingToast });
