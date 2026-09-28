@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Home, FileText, Music, Image as ImageIcon, Menu, X, LogOut, Settings } from "lucide-react";
+import { Home, FileText, Music, Image as ImageIcon, Menu, X, LogOut, Settings, Calendar } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 import { logout } from "./login/actions";
 import { getProfileData } from "@/app/actions/data";
@@ -27,6 +27,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const navItems = [
     { name: "Nhà của tôi", href: "/", icon: <Home size={22} /> },
+    { name: "Lịch học", href: "/schedule", icon: <Calendar size={22} /> },
     { name: "Kỷ niệm", href: "/gallery", icon: <ImageIcon size={22} /> },
     { name: "Giai điệu", href: "/music", icon: <Music size={22} /> },
     { name: "Học tập", href: "/docs", icon: <FileText size={22} /> },

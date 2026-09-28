@@ -178,3 +178,29 @@ export async function getProfileData() {
     avatar: publicAvatarUrl
   };
 }
+
+// ---- API LỊCH HỌC TẬP (SCHEDULE) ----
+export async function getSchedules() {
+  const supabase = await createClient();
+  const { data } = await supabase.from('study_schedules').select('*').order('date', { ascending: true }).order('start_time', { ascending: true });
+  return data || [];
+}
+
+export async function addSchedule(payload: any) {
+  const user = await getUser();
+  const supabase = await createClient();
+  const { error } = await supabase.from('study_schedules').insert([{ ...payload, user_id: user.id }]);
+  if (error) throw new Error(error.message);
+}
+
+export async function updateScheduleStatus(id: string, is_completed: boolean) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('study_schedules').update({ is_completed }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteSchedule(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('study_schedules').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
