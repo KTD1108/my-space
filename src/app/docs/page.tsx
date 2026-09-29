@@ -445,17 +445,17 @@ export default function DocsPage() {
                     </td>
                     <td className="p-5 text-slate-400 text-sm font-medium">{new Date(doc.created_at).toLocaleDateString('vi-VN')}</td>
                     <td className="p-5 text-right">
-                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleSummary(doc)} className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-colors" title="AI Tóm tắt">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => handleSummary(doc)} className="p-2 text-emerald-600 hover:bg-emerald-100 bg-emerald-50 rounded-xl transition-colors" title="AI Tóm tắt">
                           <Sparkles size={18} />
                         </button>
-                        <a href={doc.publicUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-blue-600 hover:bg-blue-100 rounded-xl transition-colors" title="Xem/Truy cập">
+                        <a href={doc.publicUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-blue-600 hover:bg-blue-100 bg-blue-50 rounded-xl transition-colors" title="Xem/Truy cập">
                           <ExternalLink size={18} />
                         </a>
-                        <button onClick={() => handleShare(doc.id, 'doc')} className="p-2 text-purple-600 hover:bg-purple-100 rounded-xl transition-colors" title="Chia sẻ">
+                        <button onClick={() => handleShare(doc.id, 'doc')} className="p-2 text-purple-600 hover:bg-purple-100 bg-purple-50 rounded-xl transition-colors" title="Chia sẻ">
                           <Share2 size={18} />
                         </button>
-                        <button onClick={() => handleDeleteDoc(doc.id, doc.url)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="Xóa">
+                        <button onClick={() => handleDeleteDoc(doc.id, doc.url)} className="p-2 text-red-500 hover:bg-red-100 bg-red-50 rounded-xl transition-colors" title="Xóa">
                           <Trash2 size={18} />
                         </button>
                       </div>
