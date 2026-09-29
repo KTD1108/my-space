@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Upload, Trash2, ExternalLink, File, FileText, Folder, FolderPlus, FileStack, X, Link as LinkIcon, Share2, Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
-import { getDocs, getUploadUrl, addRecord, deleteRecord, getCategories, addCategory, deleteCategory, createShareLink } from "@/app/actions/data";
+import { getDocs, getUploadUrl, addRecord, deleteRecord, getCategories, addCategory, deleteCategory, createShareLink, updateDocCategory } from "@/app/actions/data";
 
 export default function DocsPage() {
   const [docs, setDocs] = useState<any[]>([]);
@@ -231,6 +231,17 @@ export default function DocsPage() {
     }
   };
 
+  const handleChangeCategory = async (docId: string, newCategory: string) => {
+    const loadingToast = toast.loading("Đang chuyển thư mục...");
+    try {
+      await updateDocCategory(docId, newCategory);
+      toast.success("Đã chuyển thành công!", { id: loadingToast });
+      fetchDocs();
+    } catch (error: any) {
+      toast.error("Lỗi: " + error.message, { id: loadingToast });
+    }
+  };
+
   const filteredDocs = activeCategory === 'Tất cả' 
     ? docs 
     : docs.filter(doc => (doc.category || 'Chung') === activeCategory);
@@ -422,7 +433,15 @@ export default function DocsPage() {
                       <span className="truncate max-w-sm block" title={doc.title}>{doc.title}</span>
                     </td>
                     <td className="p-5 text-slate-500 text-sm font-bold">
-                      <span className="bg-slate-100 px-3 py-1.5 rounded-lg text-xs">{doc.category || 'Chung'}</span>
+                      <select 
+                        value={doc.category || 'Chung'}
+                        onChange={(e) => handleChangeCategory(doc.id, e.target.value)}
+                        className="bg-slate-100 hover:bg-slate-200 px-2 py-1.5 rounded-lg text-xs font-bold outline-none cursor-pointer transition-colors border-none text-slate-600 w-full max-w-[120px]"
+                      >
+                        {allCategoryNames.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="p-5 text-slate-400 text-sm font-medium">{new Date(doc.created_at).toLocaleDateString('vi-VN')}</td>
                     <td className="p-5 text-right">

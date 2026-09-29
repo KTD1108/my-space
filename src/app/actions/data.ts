@@ -155,6 +155,12 @@ export async function movePhotoToAlbum(photoId: string, newAlbum: string) {
   if (error) throw new Error(error.message);
 }
 
+export async function updateDocCategory(docId: string, newCategory: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('documents').update({ category: newCategory }).eq('id', docId);
+  if (error) throw new Error(error.message);
+}
+
 export async function updateProfileMetadata(name: string, avatarPath?: string) {
   const supabase = await createClient();
   const updates: any = { display_name: name };
