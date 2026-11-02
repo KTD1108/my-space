@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle, Trash2, Plus, X, ListTodo, AlertCircle, ChevronLeft, ChevronRight, LayoutList, CalendarDays, Edit2 } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, CheckCircle2, Circle, Trash2, Plus, X, ListTodo, AlertCircle, ChevronLeft, ChevronRight, LayoutList, CalendarDays, Edit2, Image as ImageIcon } from "lucide-react";
 import toast from "react-hot-toast";
-import { getSchedules, addSchedule, updateScheduleStatus, deleteSchedule, updateSchedule } from "@/app/actions/data";
+import { getSchedules, addSchedule, updateScheduleStatus, deleteSchedule, updateSchedule, getUploadUrl } from "@/app/actions/data";
 
 export default function SchedulePage() {
   const [schedules, setSchedules] = useState<any[]>([]);
@@ -30,9 +30,77 @@ export default function SchedulePage() {
     { id: 'green', bg: 'bg-emerald-100', text: 'text-emerald-600', border: 'border-emerald-200', solid: 'bg-emerald-500 text-white' },
   ];
 
+  // Trạng thái Ảnh nền lịch cá nhân hóa
+  const [calendarBg, setCalendarBg] = useState<string | null>(null);
+  const [bgOpacity, setBgOpacity] = useState<number>(75);
+  const [isUploadingBg, setIsUploadingBg] = useState(false);
+
   useEffect(() => { 
     fetchSchedules(); 
+    // Khôi phục ảnh nền lịch đã lưu nếu có
+    const savedBg = localStorage.getItem('calendar_custom_bg');
+    if (savedBg) setCalendarBg(savedBg);
+    const savedOpacity = localStorage.getItem('calendar_custom_bg_opacity');
+    if (savedOpacity) setBgOpacity(Number(savedOpacity));
   }, []);
+
+  const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Vui lòng chọn một file ảnh hợp lệ (PNG, JPG, WEBP).");
+      return;
+    }
+
+    setIsUploadingBg(true);
+    const toastId = toast.loading("Đang tải ảnh nền lên...");
+
+    try {
+      // Đọc base64 để lưu vào localStorage và hiển thị ngay
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          try {
+            localStorage.setItem('calendar_custom_bg', reader.result);
+            setCalendarBg(reader.result);
+          } catch (storageErr) {
+            // Nếu ảnh quá lớn so với localStorage, dùng ObjectURL
+            const blobUrl = URL.createObjectURL(file);
+            setCalendarBg(blobUrl);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+
+      // Đồng thời tải lên Supabase Storage để lưu trữ đám mây
+      try {
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const fileName = `calendar_bg/${Date.now()}.${fileExt}`;
+        const { signedUrl } = await getUploadUrl(fileName);
+        await fetch(signedUrl, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': file.type }
+        });
+      } catch (cloudErr) {
+        // Vẫn dùng được ảnh cục bộ nếu lưu cloud lỗi
+      }
+
+      toast.success("Đã cài đặt ảnh nền thành công!", { id: toastId });
+    } catch (err: any) {
+      toast.error("Lỗi khi tải ảnh: " + err.message, { id: toastId });
+    } finally {
+      setIsUploadingBg(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveBg = () => {
+    setCalendarBg(null);
+    localStorage.removeItem('calendar_custom_bg');
+    toast.success("Đã xóa ảnh nền, trở về mặc định.");
+  };
 
   const fetchSchedules = async () => {
     setIsLoading(true);
@@ -144,12 +212,21 @@ export default function SchedulePage() {
     // Header Ngày trong tuần
     const daysOfWeek = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     daysOfWeek.forEach(d => {
-      cells.push(<div key={d} className="text-center text-xs font-extrabold text-slate-400 py-2 uppercase tracking-widest">{d}</div>);
+      cells.push(
+        <div key={d} className={`text-center text-xs py-2 uppercase tracking-widest ${calendarBg ? 'font-extrabold text-slate-700 drop-shadow-2xs' : 'font-extrabold text-slate-400'}`}>
+          {d}
+        </div>
+      );
     });
 
     // Ô trống đầu tháng
     for (let i = 0; i < startDay; i++) {
-      cells.push(<div key={`empty-${i}`} className="min-h-[120px] bg-slate-50/50 rounded-2xl border border-transparent"></div>);
+      cells.push(
+        <div 
+          key={`empty-${i}`} 
+          className={`min-h-[120px] rounded-2xl ${calendarBg ? 'bg-white/30 backdrop-blur-xs border border-white/20' : 'bg-slate-50/50 border border-transparent'}`}
+        />
+      );
     }
 
     // Các ngày trong tháng
@@ -162,9 +239,13 @@ export default function SchedulePage() {
         <div 
           key={day} 
           onClick={() => setViewingDay(dateStr)} // MỞ BẢNG CHI TIẾT NGÀY
-          className={`min-h-[120px] bg-white border rounded-2xl p-2 transition-all cursor-pointer group hover:shadow-md ${isToday ? 'border-blue-400 ring-2 ring-blue-100 ring-offset-1' : 'border-slate-200 hover:border-blue-300'}`}
+          className={`min-h-[120px] border rounded-2xl p-2.5 transition-all cursor-pointer group hover:shadow-md ${
+            calendarBg 
+              ? 'bg-white/80 hover:bg-white/95 backdrop-blur-xs border-white/70 hover:border-blue-400 shadow-2xs' 
+              : 'bg-white border-slate-200 hover:border-blue-300'
+          } ${isToday ? 'border-blue-500 ring-2 ring-blue-200 ring-offset-1' : ''}`}
         >
-          <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-bold mb-1.5 ${isToday ? 'bg-blue-500 text-white shadow-sm shadow-blue-200' : 'text-slate-600 group-hover:text-blue-500'}`}>
+          <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-bold mb-1.5 ${isToday ? 'bg-blue-600 text-white shadow-sm shadow-blue-200' : 'text-slate-700 group-hover:text-blue-600'}`}>
             {day}
           </div>
           
@@ -188,18 +269,88 @@ export default function SchedulePage() {
     }
 
     return (
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-extrabold text-slate-800 capitalize">
+      <div className="relative bg-white rounded-3xl p-6 shadow-sm border border-slate-200/90 overflow-hidden transition-all">
+        {/* Ảnh nền bao trùm toàn bộ khung lịch */}
+        {calendarBg && (
+          <>
+            <img 
+              src={calendarBg} 
+              alt="Calendar Wallpaper" 
+              className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none transition-all duration-300"
+            />
+            {/* Lớp phủ mờ tùy chỉnh để chữ và lịch luôn dễ đọc */}
+            <div 
+              className="absolute inset-0 backdrop-blur-xs z-0 pointer-events-none transition-all duration-300" 
+              style={{ backgroundColor: `rgba(255, 255, 255, ${bgOpacity / 100})` }}
+            />
+          </>
+        )}
+
+        {/* Header Lịch */}
+        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
+          <h2 className="text-2xl font-extrabold text-slate-800 capitalize drop-shadow-2xs">
             Tháng {currentMonth.getMonth() + 1} - {currentMonth.getFullYear()}
           </h2>
-          <div className="flex gap-2">
-            <button onClick={prevMonth} className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl transition-colors"><ChevronLeft size={20} /></button>
-            <button onClick={() => setCurrentMonth(new Date())} className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-sm rounded-xl transition-colors">Hôm nay</button>
-            <button onClick={nextMonth} className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl transition-colors"><ChevronRight size={20} /></button>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Bộ điều khiển Ảnh nền */}
+            <div className="flex items-center gap-1.5 bg-white/90 backdrop-blur-md p-1 rounded-xl border border-slate-200 shadow-2xs">
+              <label 
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg cursor-pointer transition-colors"
+                title="Tải ảnh từ máy tính để làm hình nền lịch"
+              >
+                <ImageIcon size={14} className="text-blue-600" />
+                <span>{calendarBg ? "Đổi ảnh nền" : "Thêm ảnh nền"}</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleBgUpload} 
+                  disabled={isUploadingBg}
+                  className="hidden" 
+                />
+              </label>
+
+              {calendarBg && (
+                <>
+                  <div className="flex items-center gap-1.5 px-2 text-[11px] font-semibold text-slate-500" title="Kéo để chỉnh độ sáng/mờ của nền">
+                    <span>Mờ:</span>
+                    <input 
+                      type="range" 
+                      min="25" 
+                      max="95" 
+                      value={bgOpacity}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setBgOpacity(val);
+                        localStorage.setItem('calendar_custom_bg_opacity', String(val));
+                      }}
+                      className="w-16 accent-blue-600 h-1.5 cursor-pointer bg-slate-200 rounded-lg"
+                    />
+                    <span className="font-mono text-[10px] w-6 text-right">{bgOpacity}%</span>
+                  </div>
+
+                  <button
+                    onClick={handleRemoveBg}
+                    className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+                    title="Xóa ảnh nền, trở về mặc định"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Điều hướng Tháng */}
+            <div className="flex items-center gap-1 bg-white/90 backdrop-blur-md p-1 rounded-xl border border-slate-200 shadow-2xs">
+              <button onClick={prevMonth} className="p-1.5 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors"><ChevronLeft size={18} /></button>
+              <button onClick={() => setCurrentMonth(new Date())} className="px-3 py-1 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-lg transition-colors">Hôm nay</button>
+              <button onClick={nextMonth} className="p-1.5 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors"><ChevronRight size={18} /></button>
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-7 gap-2">
+
+        {/* Lưới hiển thị các ngày */}
+        <div className="relative z-10 grid grid-cols-7 gap-2">
           {cells}
         </div>
       </div>
