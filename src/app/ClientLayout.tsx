@@ -20,6 +20,7 @@ import {
 import { Toaster } from "react-hot-toast";
 import { logout } from "./login/actions";
 import { getProfileData } from "@/app/actions/data";
+import CommandPalette from "@/components/CommandPalette";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -72,6 +73,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   return (
     <div className="flex h-screen w-full text-slate-800 bg-slate-50/70 antialiased">
       <Toaster position="top-center" toastOptions={{ className: 'rounded-xl shadow-lg font-medium text-sm border border-slate-200/80' }} />
+      <CommandPalette />
       
       {/* Nút mở menu trên Mobile */}
       <button 
@@ -170,8 +172,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <button 
               className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg hover:border-slate-300 hover:text-slate-600 transition-all cursor-pointer shadow-2xs"
               onClick={() => {
-                const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true });
-                window.dispatchEvent(event);
+                window.dispatchEvent(new CustomEvent('open-command-palette'));
               }}
             >
               <Search size={14} className="text-slate-400" />

@@ -128,6 +128,21 @@ export async function deleteCategory(id: string, name: string) {
   await supabase.from('categories').delete().eq('id', id);
 }
 
+export async function getCommandSearchData() {
+  const supabase = await createClient();
+  const [docsRes, songsRes, schedsRes] = await Promise.all([
+    supabase.from('documents').select('id, title, category, type, url').order('created_at', { ascending: false }).limit(25),
+    supabase.from('songs').select('id, title, url').order('created_at', { ascending: false }).limit(25),
+    supabase.from('study_schedules').select('id, title, date, start_time, is_completed').order('date', { ascending: false }).limit(25)
+  ]);
+
+  return {
+    docs: docsRes.data || [],
+    songs: songsRes.data || [],
+    schedules: schedsRes.data || []
+  };
+}
+
 export async function getAlbums() {
   const supabase = await createClient();
   const { data } = await supabase.from('albums').select('*').order('created_at', { ascending: true });
