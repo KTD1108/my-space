@@ -37,7 +37,9 @@ export default function FocusStudyHub() {
 
   // POMODORO STATE
   const [mode, setMode] = useState<PomodoroMode>("focus");
-  const [timeLeft, setTimeLeft] = useState(MODE_TIMES.focus);
+  const [customMinutes, setCustomMinutes] = useState(25);
+  const [totalDuration, setTotalDuration] = useState(25 * 60);
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [sessionGoal, setSessionGoal] = useState("");
   const [goalCompleted, setGoalCompleted] = useState(false);
@@ -91,13 +93,17 @@ export default function FocusStudyHub() {
             ambientAudio.playChime();
 
             if (mode === "focus") {
-              toast.success("🎉 Hoàn thành phiên học 25 phút! Hãy nghỉ ngơi 5 phút nhé.", { duration: 6000 });
+              toast.success(`🎉 Hoàn thành phiên học ${customMinutes} phút! Hãy nghỉ ngơi một chút nhé.`, { duration: 6000 });
               setMode("shortBreak");
-              return MODE_TIMES.shortBreak;
+              setCustomMinutes(5);
+              setTotalDuration(5 * 60);
+              return 5 * 60;
             } else {
               toast.success("⏰ Hết giờ nghỉ! Sẵn sàng quay lại phiên tập trung tiếp theo.", { duration: 6000 });
               setMode("focus");
-              return MODE_TIMES.focus;
+              setCustomMinutes(25);
+              setTotalDuration(25 * 60);
+              return 25 * 60;
             }
           }
           return prev - 1;
@@ -177,7 +183,23 @@ export default function FocusStudyHub() {
   const switchMode = (newMode: PomodoroMode) => {
     setIsRunning(false);
     setMode(newMode);
-    setTimeLeft(MODE_TIMES[newMode]);
+    const mins = newMode === "focus" ? 25 : newMode === "shortBreak" ? 5 : 15;
+    setCustomMinutes(mins);
+    setTotalDuration(mins * 60);
+    setTimeLeft(mins * 60);
+  };
+
+  const handleSetMinutes = (mins: number) => {
+    const validMins = Math.max(1, Math.min(360, mins));
+    setCustomMinutes(validMins);
+    setTotalDuration(validMins * 60);
+    setTimeLeft(validMins * 60);
+    setIsRunning(false);
+  };
+
+  const adjustMinutes = (delta: number) => {
+    const newMins = Math.max(1, Math.min(360, customMinutes + delta));
+    handleSetMinutes(newMins);
   };
 
   const formatTime = (secs: number) => {
@@ -186,7 +208,7 @@ export default function FocusStudyHub() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const progressPercent = ((MODE_TIMES[mode] - timeLeft) / MODE_TIMES[mode]) * 100;
+  const progressPercent = totalDuration > 0 ? ((totalDuration - timeLeft) / totalDuration) * 100 : 0;
   const activeSoundsCount = Object.values(soundStates).filter(s => s.active).length;
 
   if (!isOpen) return null;
@@ -326,12 +348,71 @@ export default function FocusStudyHub() {
               <span className="font-mono text-6xl sm:text-7xl font-extrabold tracking-tighter text-white drop-shadow-md">
                 {formatTime(timeLeft)}
               </span>
-              <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-3">
+              <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-2">
                 {mode === "focus" ? "Đang trong phiên tập trung sâu" : "Thả lỏng cơ thể & hít thở sâu"}
               </p>
 
+              {/* Bộ điều khiển tùy chỉnh số phút linh hoạt */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-4 z-10">
+                <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded-xl px-2.5 py-1">
+                  <span className="text-[11px] font-semibold text-slate-400">Thời lượng:</span>
+                  <input 
+                    type="number" 
+                    min="1" 
+                    max="360" 
+                    value={customMinutes} 
+                    onChange={(e) => handleSetMinutes(Math.max(1, Math.min(360, Number(e.target.value) || 1)))}
+                    className="w-12 text-center bg-slate-800 text-blue-400 font-bold text-xs rounded border border-slate-700 py-0.5 outline-none focus:border-blue-500"
+                  />
+                  <span className="text-[11px] font-bold text-slate-400">phút</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => adjustMinutes(-5)} 
+                    disabled={customMinutes <= 5}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 transition-colors"
+                    title="Giảm 5 phút"
+                  >
+                    -5p
+                  </button>
+                  <button 
+                    onClick={() => adjustMinutes(5)} 
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 transition-colors"
+                    title="Tăng 5 phút"
+                  >
+                    +5p
+                  </button>
+                  <button 
+                    onClick={() => adjustMinutes(15)} 
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 transition-colors"
+                    title="Tăng 15 phút"
+                  >
+                    +15p
+                  </button>
+                </div>
+              </div>
+
+              {/* Các mốc thời gian phổ biến */}
+              <div className="flex items-center justify-center gap-1.5 mt-2.5 text-[11px] z-10">
+                <span className="text-slate-500 text-[10px]">Mốc nhanh:</span>
+                {[15, 25, 45, 60, 90, 120].map(mins => (
+                  <button
+                    key={mins}
+                    onClick={() => handleSetMinutes(mins)}
+                    className={`px-2 py-0.5 rounded-md font-semibold transition-all ${
+                      customMinutes === mins && !isRunning
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700'
+                    }`}
+                  >
+                    {mins}p
+                  </button>
+                ))}
+              </div>
+
               {/* Nút điều khiển Timer */}
-              <div className="flex items-center gap-3 mt-6">
+              <div className="flex items-center gap-3 mt-6 z-10">
                 <button
                   onClick={() => setIsRunning(!isRunning)}
                   className={`px-8 py-3.5 rounded-2xl font-bold text-sm flex items-center gap-2.5 transition-all shadow-lg active:scale-95 ${
@@ -345,7 +426,7 @@ export default function FocusStudyHub() {
                 <button
                   onClick={() => {
                     setIsRunning(false);
-                    setTimeLeft(MODE_TIMES[mode]);
+                    setTimeLeft(totalDuration);
                   }}
                   className="p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
                   title="Đặt lại thời gian"
