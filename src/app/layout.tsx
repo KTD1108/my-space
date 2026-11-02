@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
-import { Nunito } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "./ClientLayout";
 
-// Sử dụng font Nunito siêu mềm mại và bo tròn
-const nunito = Nunito({ subsets: ["vietnamese"], weight: ["400", "600", "700", "800"] });
+const fontSans = Plus_Jakarta_Sans({
+  subsets: ["vietnamese", "latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-sans",
+});
 
 export const metadata: Metadata = {
-  title: "Góc Nhỏ Của Tôi ✨",
-  description: "Không gian lưu giữ kỷ niệm",
+  title: "My Space — Không gian số cá nhân",
+  description: "Nền tảng quản lý tài liệu, giai điệu, lịch trình và kỷ niệm cá nhân thông minh",
 };
 
 export default function RootLayout({
@@ -18,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
-      <body className={`${nunito.className} bg-[#F9FAFB] overflow-hidden`}>
+      <body className={`${fontSans.className} bg-slate-50 text-slate-800 antialiased selection:bg-blue-100 selection:text-blue-900 overflow-hidden`}>
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

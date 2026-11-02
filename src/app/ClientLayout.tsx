@@ -2,7 +2,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Home, FileText, Music, Image as ImageIcon, Menu, X, LogOut, Settings, Calendar } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  FileText, 
+  Headphones, 
+  Image as ImageIcon, 
+  Calendar, 
+  Menu, 
+  X, 
+  LogOut, 
+  Settings, 
+  Search,
+  Sparkles,
+  Command,
+  ChevronRight
+} from "lucide-react";
 import { Toaster } from "react-hot-toast";
 import { logout } from "./login/actions";
 import { getProfileData } from "@/app/actions/data";
@@ -25,129 +39,195 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     if (pathname !== '/login') loadProfile();
   }, [pathname]);
 
-  const navItems = [
-    { name: "Nhà của tôi", href: "/", icon: <Home size={22} /> },
-    { name: "Lịch học", href: "/schedule", icon: <Calendar size={22} /> },
-    { name: "Kỷ niệm", href: "/gallery", icon: <ImageIcon size={22} /> },
-    { name: "Giai điệu", href: "/music", icon: <Music size={22} /> },
-    { name: "Học tập", href: "/docs", icon: <FileText size={22} /> },
+  const navGroups = [
+    {
+      group: "Không gian làm việc",
+      items: [
+        { name: "Tổng quan", href: "/", icon: <LayoutDashboard size={18} />, shortcut: "G H" },
+        { name: "Lịch trình", href: "/schedule", icon: <Calendar size={18} />, shortcut: "G S" },
+      ]
+    },
+    {
+      group: "Kho tri thức & Media",
+      items: [
+        { name: "Tài liệu & Học tập", href: "/docs", icon: <FileText size={18} />, shortcut: "G D" },
+        { name: "Giai điệu tập trung", href: "/music", icon: <Headphones size={18} />, shortcut: "G M" },
+        { name: "Thư viện Kỷ niệm", href: "/gallery", icon: <ImageIcon size={18} />, shortcut: "G G" },
+      ]
+    }
   ];
 
   if (pathname === "/login") {
     return (
-      <div className="flex h-screen w-full">
-        <Toaster position="top-center" toastOptions={{ className: 'rounded-2xl shadow-xl font-bold' }} />
+      <div className="flex h-screen w-full bg-slate-50">
+        <Toaster position="top-center" toastOptions={{ className: 'rounded-xl shadow-lg font-medium text-sm' }} />
         {children}
       </div>
     );
   }
 
-  const displayName = profile?.name || "Bạn";
-  const avatarUrl = profile?.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${displayName}&backgroundColor=ffd5dc,b6e3f4`;
+  const displayName = profile?.name || "Người dùng";
+  const avatarUrl = profile?.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${displayName}&backgroundColor=e2e8f0,cbd5e1`;
 
   return (
-    <div className="flex h-screen w-full text-slate-700 bg-[#F9FAFB]">
-      <Toaster position="top-center" toastOptions={{ className: 'rounded-2xl shadow-xl font-bold border border-slate-100' }} />
+    <div className="flex h-screen w-full text-slate-800 bg-slate-50/70 antialiased">
+      <Toaster position="top-center" toastOptions={{ className: 'rounded-xl shadow-lg font-medium text-sm border border-slate-200/80' }} />
       
       {/* Nút mở menu trên Mobile */}
       <button 
-        className="md:hidden fixed top-5 right-5 z-50 bg-white/80 backdrop-blur-md p-3 rounded-full shadow-lg text-slate-700 border border-slate-100"
+        className="md:hidden fixed top-4 right-4 z-50 bg-white p-2.5 rounded-xl shadow-sm border border-slate-200 text-slate-700 active:scale-95 transition-all"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        aria-label="Mở Menu"
       >
-        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {/* Sidebar Sáng, Kính mờ, Bo góc thanh thoát */}
-      <aside className={`${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-40 w-72 h-full bg-white/70 backdrop-blur-2xl border-r border-slate-200/60 flex flex-col transition-transform duration-300 ease-in-out`}>
+      {/* Sidebar Chuẩn Studio / SaaS Cao Cấp */}
+      <aside className={`${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-40 w-64 h-full bg-white border-r border-slate-200/80 flex flex-col transition-transform duration-200 ease-out`}>
         
-        {/* Header thân thiện */}
-        <div className="p-8 pb-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-tr from-pink-300 to-purple-400 rounded-2xl rotate-3 shadow-md"></div>
-          <div>
-            <h2 className="text-xl font-extrabold text-slate-800 tracking-tight">Trạm Dừng Chân</h2>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-0.5">My Space ✨</p>
-          </div>
+        {/* Brand Header */}
+        <div className="px-6 py-5 flex items-center justify-between border-b border-slate-100">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-sm group-hover:bg-blue-600 transition-colors">
+              M
+            </div>
+            <div>
+              <span className="font-bold text-sm tracking-tight text-slate-900 block leading-tight">My Space</span>
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Workspace</span>
+            </div>
+          </Link>
+          <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/60">
+            PRO
+          </span>
         </div>
         
-        <nav className="flex-1 px-5 space-y-1.5 mt-2">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link 
-                key={item.href} 
-                href={item.href} 
-                onClick={() => setIsMobileMenuOpen(false)} 
-                className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-bold ${isActive ? "bg-slate-900 text-white shadow-md shadow-slate-900/20 scale-[1.02]" : "hover:bg-slate-100/80 text-slate-500 hover:text-slate-800"}`}
-              >
-                {item.icon}
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Navigation Groups */}
+        <div className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
+          {navGroups.map((group, idx) => (
+            <div key={idx} className="space-y-1">
+              <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                {group.group}
+              </p>
+              {group.items.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link 
+                    key={item.href} 
+                    href={item.href} 
+                    onClick={() => setIsMobileMenuOpen(false)} 
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      isActive 
+                        ? "bg-slate-900 text-white shadow-xs" 
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={isActive ? "text-white" : "text-slate-400"}>
+                        {item.icon}
+                      </span>
+                      <span>{item.name}</span>
+                    </div>
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </div>
         
-        <div className="p-5 mt-auto text-xs text-slate-400 text-center font-bold mb-2 uppercase tracking-widest">
-          &copy; {new Date().getFullYear()} Coded with ❤️
+        {/* Footer Sidebar: Trạng thái & Dung lượng */}
+        <div className="p-3 border-t border-slate-100 bg-slate-50/50">
+          <div className="px-3 py-2 rounded-lg border border-slate-200/60 bg-white">
+            <div className="flex items-center justify-between text-xs mb-1.5">
+              <span className="font-medium text-slate-500">Hệ sinh thái</span>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Trực tuyến
+              </span>
+            </div>
+            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-blue-600 h-full rounded-full w-[24%]"></div>
+            </div>
+          </div>
         </div>
       </aside>
       
+      {/* Overlay Mobile */}
       {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-30 transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
+        <div className="md:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-30 transition-opacity" onClick={() => setIsMobileMenuOpen(false)}></div>
       )}
 
-      {/* Khu vực nội dung chính */}
-      <main className="flex-1 overflow-y-auto h-full w-full relative flex flex-col">
-        <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-pink-400/10 rounded-full blur-3xl pointer-events-none z-0"></div>
-        <div className="absolute bottom-[-10%] left-[-5%] w-96 h-96 bg-purple-400/10 rounded-full blur-3xl pointer-events-none z-0"></div>
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto h-full w-full relative flex flex-col bg-slate-50/60">
         
-        {/* HEADER GÓC TRÊN PHẢI (ẢNH ĐẠI DIỆN) */}
-        <div className="w-full flex justify-end items-center px-6 pt-5 md:px-12 md:pt-8 relative z-40">
-          {/* Căn lề mr-14 trên Mobile để không đè vào nút Menu Hamburger */}
-          <div className="relative mr-14 md:mr-0">
+        {/* Top Navbar */}
+        <header className="h-16 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-6 md:px-10 flex items-center justify-between sticky top-0 z-30">
+          
+          {/* Nút tìm kiếm nhanh Command Palette (Chuẩn bị cho Ctrl+K) */}
+          <div className="flex items-center gap-3">
+            <button 
+              className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg hover:border-slate-300 hover:text-slate-600 transition-all cursor-pointer shadow-2xs"
+              onClick={() => {
+                const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true });
+                window.dispatchEvent(event);
+              }}
+            >
+              <Search size={14} className="text-slate-400" />
+              <span className="hidden sm:inline">Tìm kiếm nhanh hoặc lệnh...</span>
+              <span className="sm:hidden">Tìm kiếm...</span>
+              <kbd className="hidden sm:inline-flex items-center gap-0.5 font-mono text-[10px] bg-white text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
+                <Command size={10} /> K
+              </kbd>
+            </button>
+          </div>
+
+          {/* User Profile Menu */}
+          <div className="relative flex items-center gap-3">
             <button 
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center gap-3 bg-white p-1.5 pr-4 rounded-full shadow-sm border border-slate-200 hover:shadow-md transition-all active:scale-95"
+              className="flex items-center gap-2.5 p-1 pr-3 rounded-full hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all cursor-pointer"
             >
-              <img src={avatarUrl} alt="Avatar" className="w-9 h-9 rounded-full object-cover bg-slate-100 border border-slate-100" />
-              <span className="text-sm font-bold text-slate-700 hidden sm:block truncate max-w-[120px]">{displayName}</span>
+              <img src={avatarUrl} alt="Avatar" className="w-7 h-7 rounded-full object-cover bg-slate-100 ring-1 ring-slate-200" />
+              <span className="text-xs font-semibold text-slate-700 hidden sm:block max-w-[120px] truncate">{displayName}</span>
+              <ChevronRight size={14} className={`text-slate-400 transition-transform ${isProfileOpen ? 'rotate-90' : ''}`} />
             </button>
 
-            {/* Menu Dropdown Cài đặt / Đăng xuất */}
+            {/* Dropdown Menu */}
             {isProfileOpen && (
               <>
-                {/* Lớp nền trong suốt để bấm ra ngoài thì đóng menu */}
                 <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
-                
-                <div className="absolute right-0 mt-3 w-64 bg-white rounded-3xl shadow-xl border border-slate-100 p-2 py-3 z-50 animate-in fade-in slide-in-from-top-4">
-                  <div className="px-5 py-3 border-b border-slate-50 mb-2">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Tài khoản</p>
-                    <p className="text-sm font-extrabold text-slate-700 truncate">{profile?.email || 'Đang tải...'}</p>
+                <div className="absolute right-0 top-11 w-60 bg-white rounded-xl shadow-lg border border-slate-200/90 p-1.5 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-3 py-2 border-b border-slate-100 mb-1">
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Đang đăng nhập</p>
+                    <p className="text-xs font-bold text-slate-800 truncate">{profile?.email || 'Tài khoản'}</p>
                   </div>
                   
                   <Link 
                     href="/profile" 
                     onClick={() => setIsProfileOpen(false)}
-                    className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 rounded-2xl text-slate-600 font-bold transition-colors"
+                    className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 transition-colors"
                   >
-                    <Settings size={18} className="text-slate-400" />
-                    Cài đặt cá nhân
+                    <Settings size={15} className="text-slate-400" />
+                    Cài đặt tài khoản
                   </Link>
                   
                   <button 
                     onClick={() => logout()}
-                    className="w-full flex items-center gap-3 px-5 py-3.5 mt-1 hover:bg-red-50 text-red-500 font-bold rounded-2xl transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-red-50 text-red-600 rounded-lg text-xs font-medium transition-colors cursor-pointer"
                   >
-                    <LogOut size={18} />
-                    Đăng xuất an toàn
+                    <LogOut size={15} />
+                    Đăng xuất
                   </button>
                 </div>
               </>
             )}
           </div>
-        </div>
+        </header>
 
-        {/* NỘI DUNG TỪNG TRANG */}
-        <div className="relative z-10 px-6 pb-6 md:px-12 md:pb-12 mt-2 md:mt-4 flex-1">
+        {/* Nội dung trang */}
+        <div className="flex-1 px-6 py-6 md:px-10 md:py-8 max-w-7xl w-full mx-auto">
           {children}
         </div>
       </main>
