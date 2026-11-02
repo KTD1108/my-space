@@ -21,6 +21,7 @@ import { Toaster } from "react-hot-toast";
 import { logout } from "./login/actions";
 import { getProfileData } from "@/app/actions/data";
 import CommandPalette from "@/components/CommandPalette";
+import FocusStudyHub from "@/components/FocusStudyHub";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -74,6 +75,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <div className="flex h-screen w-full text-slate-800 bg-slate-50/70 antialiased">
       <Toaster position="top-center" toastOptions={{ className: 'rounded-xl shadow-lg font-medium text-sm border border-slate-200/80' }} />
       <CommandPalette />
+      <FocusStudyHub />
       
       {/* Nút mở menu trên Mobile */}
       <button 
@@ -168,7 +170,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <header className="h-16 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-6 md:px-10 flex items-center justify-between sticky top-0 z-30">
           
           {/* Nút tìm kiếm nhanh Command Palette (Chuẩn bị cho Ctrl+K) */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button 
               className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg hover:border-slate-300 hover:text-slate-600 transition-all cursor-pointer shadow-2xs"
               onClick={() => {
@@ -181,6 +183,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               <kbd className="hidden sm:inline-flex items-center gap-0.5 font-mono text-[10px] bg-white text-slate-500 px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
                 <Command size={10} /> K
               </kbd>
+            </button>
+
+            <button 
+              onClick={() => window.dispatchEvent(new CustomEvent('open-focus-hub'))}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-lg hover:border-slate-300 transition-all cursor-pointer shadow-2xs group"
+              title="Mở phòng học tập trung (Pomodoro & Âm thanh thư giãn)"
+            >
+              <Sparkles size={13} className="text-amber-500 group-hover:scale-110 transition-transform" />
+              <span className="hidden sm:inline">Phòng tập trung</span>
             </button>
           </div>
 

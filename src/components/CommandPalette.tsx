@@ -91,8 +91,20 @@ export default function CommandPalette() {
     const q = query.toLowerCase().trim();
     const list: CommandItem[] = [];
 
-    // 1. ĐIỀU HƯỚNG TRANG CHÍNH
+    // 1. ĐIỀU HƯỚNG TRANG CHÍNH & TÁC VỤ
     const navItems: CommandItem[] = [
+      {
+        id: "action-focus-hub",
+        title: "Vào phòng học tập trung (Focus Studio)",
+        subtitle: "Đồng hồ Pomodoro kết hợp Bộ trộn âm thanh Mưa / Sóng biển / Lửa trại",
+        category: "Công cụ đột phá",
+        badge: "MỚI ✨",
+        icon: <Sparkles size={16} className="text-amber-500" />,
+        onSelect: () => { 
+          window.dispatchEvent(new CustomEvent('open-focus-hub'));
+          setIsOpen(false); 
+        }
+      },
       {
         id: "nav-home",
         title: "Trang chủ / Tổng quan",
