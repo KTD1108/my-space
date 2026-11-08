@@ -262,7 +262,7 @@ export default function MusicPage() {
                   )}
                   <button 
                     onClick={(e) => handleDelete(song.id, song.url, e)}
-                    className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                    className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg transition-all sm:opacity-0 sm:group-hover:opacity-100 opacity-100"
                     title="Xóa"
                   >
                     <Trash2 size={16} />

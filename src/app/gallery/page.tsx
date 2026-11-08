@@ -253,7 +253,7 @@ export default function GalleryPage() {
               
               <button 
                 onClick={(e) => { e.stopPropagation(); handleDeleteAlbum(album.id, album.name); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-red-400 hover:bg-red-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all bg-white shadow-sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-red-400 hover:bg-red-100 dark:bg-slate-800 rounded-lg sm:opacity-0 sm:group-hover:opacity-100 opacity-100 transition-all bg-white shadow-sm"
                 title="Xóa album"
               >
                 <Trash2 size={14} />
@@ -307,7 +307,7 @@ export default function GalleryPage() {
                 <div key={photo.id} className="group relative aspect-square bg-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all hover:-translate-y-1">
                   <img src={photo.publicUrl} alt={photo.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" />
                   
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/30 to-transparent opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 sm:p-4">
                     <p className="text-white text-xs font-bold truncate mb-3 drop-shadow-md">{photo.title}</p>
                     <div className="flex justify-between items-center gap-1.5">
                       <button onClick={() => setSelectedPhoto(photo.publicUrl)} className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center" title="Phóng to">

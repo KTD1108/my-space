@@ -457,9 +457,9 @@ export default function SchedulePage() {
                                     {schedule.description && <p className={`mt-2 text-sm font-medium ${schedule.is_completed ? 'text-slate-400' : 'text-slate-600'}`}>{schedule.description}</p>}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-1 absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all">
-                                  <button onClick={() => openEditModal(schedule)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all" title="Sửa"><Edit2 size={18} /></button>
-                                  <button onClick={() => handleDelete(schedule.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Xóa"><Trash2 size={18} /></button>
+                                <div className="flex items-center gap-1 md:absolute md:right-4 md:top-1/2 md:-translate-y-1/2 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-all mt-3 md:mt-0">
+                                  <button onClick={() => openEditModal(schedule)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-all" title="Sửa"><Edit2 size={18} /></button>
+                                  <button onClick={() => handleDelete(schedule.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-slate-800 rounded-xl transition-all" title="Xóa"><Trash2 size={18} /></button>
                                 </div>
                               </div>
                             </div>
