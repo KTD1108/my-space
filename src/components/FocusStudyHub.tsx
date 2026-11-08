@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { ambientAudio } from "@/lib/ambientAudio";
+import { saveFocusSession } from "@/app/actions/data";
 
 type PomodoroMode = "focus" | "shortBreak" | "longBreak";
 
@@ -55,6 +56,57 @@ export default function FocusStudyHub() {
     focus: { active: false, volume: 50 },
   });
 
+  const customMinutesRef = useRef(customMinutes);
+  const sessionGoalRef = useRef(sessionGoal);
+
+  useEffect(() => {
+    customMinutesRef.current = customMinutes;
+  }, [customMinutes]);
+
+  useEffect(() => {
+    sessionGoalRef.current = sessionGoal;
+  }, [sessionGoal]);
+
+  const handleSessionCompleted = async (minutes: number, goalText: string) => {
+    const sessionData = {
+      id: Date.now().toString(),
+      duration_minutes: minutes,
+      goal: goalText || '',
+      completed_at: new Date().toISOString()
+    };
+
+    // 1. Lưu an toàn vào LocalStorage
+    try {
+      const raw = localStorage.getItem('my_space_focus_sessions');
+      const existing = raw ? JSON.parse(raw) : [];
+      existing.push(sessionData);
+      localStorage.setItem('my_space_focus_sessions', JSON.stringify(existing));
+    } catch (err) {
+      console.warn("Lỗi lưu localStorage focus session:", err);
+    }
+
+    // 2. Phát event toàn cục để Dashboard cập nhật số phút ngay lập tức
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('focus-session-completed', { detail: sessionData }));
+    }
+
+    // 3. Gọi Server Action lưu vào DB
+    try {
+      const result = await saveFocusSession({
+        duration_minutes: minutes,
+        goal: goalText,
+        completed_at: sessionData.completed_at
+      });
+      if (result.success) {
+        console.log("[Focus] Đã lưu phiên học thành công vào CSDL.");
+      } else {
+        console.log("[Focus] Đã lưu phiên học vào bộ nhớ an toàn (Local Fallback).");
+      }
+    } catch (serverErr) {
+      console.warn("[Focus] Lỗi máy chủ khi lưu phiên học:", serverErr);
+    }
+  };
+
   // Lắng nghe sự kiện mở Focus Hub toàn cục
   useEffect(() => {
     const handleOpen = () => {
@@ -80,7 +132,11 @@ export default function FocusStudyHub() {
             ambientAudio.playChime();
 
             if (mode === "focus") {
-              toast.success(`🎉 Hoàn thành phiên học ${customMinutes} phút! Hãy nghỉ ngơi một chút nhé.`, { duration: 6000 });
+              const completedMins = customMinutesRef.current;
+              const completedGoal = sessionGoalRef.current;
+              handleSessionCompleted(completedMins, completedGoal);
+
+              toast.success(`🎉 Hoàn thành phiên học ${completedMins} phút! Hãy nghỉ ngơi một chút nhé.`, { duration: 6000 });
               setMode("shortBreak");
               setCustomMinutes(5);
               setTotalDuration(5 * 60);

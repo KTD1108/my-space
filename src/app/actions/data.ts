@@ -295,6 +295,15 @@ export async function addSchedule(payload: Record<string, unknown>) {
   if (error) throw new Error(error.message);
 }
 
+export async function addSchedules(payloads: Record<string, unknown>[]) {
+  if (!payloads || payloads.length === 0) return;
+  const user = await getUser();
+  const supabase = await createClient();
+  const records = payloads.map(p => ({ ...p, user_id: user.id }));
+  const { error } = await supabase.from('study_schedules').insert(records);
+  if (error) throw new Error(error.message);
+}
+
 export async function updateScheduleStatus(id: string, is_completed: boolean) {
   const supabase = await createClient();
   const { error } = await supabase.from('study_schedules').update({ is_completed }).eq('id', id);
@@ -357,3 +366,167 @@ export async function getSharedItemInfo(shareId: string) {
   const ownerName = userRes.data?.user?.user_metadata?.display_name || 'Một người dùng';
   return { type: link.item_type, item: { ...itemDetails, publicUrl }, ownerName, ownerAvatar };
 }
+
+// ---- BULK PHOTO ACTIONS ----
+export async function deletePhotosBulk(photosToDelete: Array<{ id: string; url: string }>) {
+  if (!photosToDelete || photosToDelete.length === 0) return;
+  const user = await getUser();
+  const supabase = await createClient();
+
+  const ids = photosToDelete.map(p => p.id);
+  const { error: dbError } = await supabase.from('photos').delete().in('id', ids).eq('user_id', user.id);
+  if (dbError) {
+    console.error(`[DataAction] Lỗi xóa ảnh hàng loạt trong DB:`, dbError);
+    throw new Error(`Lỗi xóa ảnh hàng loạt: ${dbError.message}`);
+  }
+
+  // Xóa file tương ứng trong Supabase Storage
+  const pathsToRemove = photosToDelete
+    .map(p => p.url)
+    .filter(url => url && !url.startsWith('http'));
+
+  if (pathsToRemove.length > 0) {
+    pathsToRemove.forEach(path => signedUrlCache.delete(path));
+    const { error: storageError } = await supabaseAdmin.storage.from('personal_files').remove(pathsToRemove);
+    if (storageError) {
+      console.warn(`[Storage] Cảnh báo xóa file hàng loạt trong storage:`, storageError.message);
+    }
+  }
+}
+
+export async function movePhotosBulk(photoIds: string[], newAlbum: string) {
+  if (!photoIds || photoIds.length === 0) return;
+  const user = await getUser();
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('photos')
+    .update({ album: newAlbum })
+    .in('id', photoIds)
+    .eq('user_id', user.id);
+
+  if (error) {
+    console.error(`[DataAction] Lỗi chuyển album hàng loạt:`, error);
+    throw new Error(`Lỗi chuyển album hàng loạt: ${error.message}`);
+  }
+}
+
+// ---- FOCUS POMODORO STATS PERSISTENCE ----
+export async function saveFocusSession(payload: { duration_minutes: number; goal?: string; completed_at?: string }) {
+  try {
+    const user = await getUser();
+    const supabase = await createClient();
+    const completedAt = payload.completed_at || new Date().toISOString();
+    
+    const { error } = await supabase.from('focus_sessions').insert([{
+      user_id: user.id,
+      duration_minutes: payload.duration_minutes,
+      goal: payload.goal?.trim() || '',
+      completed_at: completedAt
+    }]);
+
+    if (error) {
+      console.warn(`[Focus] Lưu DB chưa khả dụng (bảng có thể chưa tạo): ${error.message}`);
+      return { success: false, fallback: true, error: error.message };
+    }
+    return { success: true, fallback: false };
+  } catch (err: any) {
+    console.warn(`[Focus] Lỗi máy chủ khi lưu phiên học:`, err.message);
+    return { success: false, fallback: true, error: err.message };
+  }
+}
+
+export async function getTodayFocusStats(): Promise<{ total_minutes: number; sessions_count: number } | null> {
+  try {
+    const user = await getUser();
+    const supabase = await createClient();
+
+    // Lấy thời điểm bắt đầu ngày hôm nay (00:00:00 local)
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const startOfDayIso = now.toISOString();
+
+    const { data, error } = await supabase
+      .from('focus_sessions')
+      .select('duration_minutes')
+      .eq('user_id', user.id)
+      .gte('completed_at', startOfDayIso);
+
+    if (error) {
+      return null;
+    }
+
+    const totalMinutes = (data || []).reduce((acc, curr) => acc + (curr.duration_minutes || 0), 0);
+    return {
+      total_minutes: totalMinutes,
+      sessions_count: data?.length || 0
+    };
+  } catch (err: any) {
+    console.warn(`[Focus] getTodayFocusStats fallback:`, err.message);
+    return null;
+  }
+}
+
+// ---- TẠO & ĐỌC GHI CHÚ NHANH (QUICK NOTES) ----
+export async function saveQuickNote(payload: {
+  title: string;
+  content: string;
+  category?: string;
+  type?: 'note' | 'txt';
+}) {
+  const user = await getUser();
+  const supabase = await createClient();
+
+  const title = payload.title?.trim() || "Ghi chú mới";
+  const content = payload.content?.trim();
+  const type = payload.type === 'txt' ? 'txt' : 'note';
+  const category = payload.category?.trim() || "Chung";
+
+  if (!content) {
+    throw new Error("Nội dung ghi chú không được để trống.");
+  }
+
+  const timestamp = Date.now();
+  const safeTitle = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '_')
+    .substring(0, 30);
+  const fileName = `docs/${timestamp}_${safeTitle || 'note'}.txt`;
+  const fullPath = `${user.id}/${fileName}`;
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from('personal_files')
+    .upload(fullPath, Buffer.from(content, 'utf-8'), {
+      contentType: 'text/plain; charset=utf-8',
+      upsert: true
+    });
+
+  if (uploadError) {
+    throw new Error(`Lỗi lưu tệp ghi chú vào kho lưu trữ: ${uploadError.message}`);
+  }
+
+  const { data, error: insertError } = await supabase.from('documents').insert([{
+    user_id: user.id,
+    title,
+    type,
+    url: fullPath,
+    category
+  }]).select().single();
+
+  if (insertError) {
+    throw new Error(`Lỗi lưu bản ghi ghi chú: ${insertError.message}`);
+  }
+
+  return { success: true, doc: data };
+}
+
+export async function getNoteContent(docUrl: string): Promise<string> {
+  if (!docUrl || docUrl.startsWith('http')) return '';
+  const { data: blob, error } = await supabaseAdmin.storage.from('personal_files').download(docUrl);
+  if (error || !blob) {
+    throw new Error("Không thể tải nội dung ghi chú từ kho lưu trữ.");
+  }
+  return await blob.text();
+}
+
+

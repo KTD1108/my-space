@@ -109,7 +109,7 @@ async function extractDocText(docType: string, docUrl: string): Promise<string> 
     const buffer = Buffer.from(await blob.arrayBuffer());
     const result = await mammoth.extractRawText({ buffer });
     text = result.value.substring(0, 16000);
-  } else if (['txt', 'md', 'csv', 'json'].includes(docType?.toLowerCase())) {
+  } else if (['txt', 'md', 'csv', 'json', 'note'].includes(docType?.toLowerCase())) {
     const { data: blob, error } = await supabaseAdmin.storage.from('personal_files').download(docUrl);
     if (error || !blob) throw new Error("Không thể tải file văn bản từ kho lưu trữ.");
     
@@ -118,8 +118,8 @@ async function extractDocText(docType: string, docUrl: string): Promise<string> 
     throw new Error(`Định dạng .${docType} chưa được hỗ trợ đọc sâu. Vui lòng dùng file PDF, Word (.docx), TXT, hoặc Link Web.`);
   }
 
-  if (!text || text.trim().length < 20) {
-    throw new Error("Nội dung tài liệu quá ngắn hoặc là file ảnh scan chưa có lớp ký tự nhận dạng.");
+  if (!text || text.trim().length < 10) {
+    throw new Error("Nội dung tài liệu quá ngắn hoặc chưa có nội dung văn bản để AI phân tích.");
   }
 
   return text;
@@ -276,5 +276,59 @@ ${content}`;
     return { success: true, flashcards };
   } catch (error: unknown) {
     return { success: false, error: (error as Error).message };
+  }
+}
+
+// 5. TRỢ LÝ TOÀN NĂNG HỎI ĐÁP TỰ DO & TRA CỨU KIẾN THỨC (UNIVERSAL AI ASSISTANT)
+export interface AIChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export async function askGeneralAI(
+  prompt: string,
+  history: AIChatMessage[] = []
+): Promise<{ success: boolean; data?: string; error?: string }> {
+  try {
+    const cleanPrompt = prompt?.trim();
+    if (!cleanPrompt) {
+      return { success: false, error: "Nội dung câu hỏi không được để trống." };
+    }
+
+    const recentHistory = (history || []).slice(-8);
+    const historyText = recentHistory.length > 0
+      ? recentHistory
+          .map(m => `${m.role === 'user' ? 'Người dùng' : 'Trợ lý AI'}: ${m.content}`)
+          .join('\n\n')
+      : 'Chưa có lịch sử trước đó.';
+
+    const systemPrompt = `Bạn là Trợ lý AI Toàn năng của nền tảng "My Space" — không gian học tập, làm việc và quản lý cá nhân thông minh.
+Mô hình vận hành: Gemini 3.5 Flash Lite tốc độ phản hồi cực nhanh và hoàn toàn miễn phí.
+
+Nhiệm vụ cốt lõi của bạn:
+1. Giải đáp mọi thắc mắc học tập và nghiên cứu (Toán, Lý, Hóa, Sinh, Tin học, Lập trình, Ngoại ngữ, Kinh tế, Văn học, Lịch sử...).
+2. Hướng dẫn phương pháp học tập hiệu quả (Pomodoro, Feynman, Spaced Repetition, Active Recall), lập kế hoạch ôn thi, viết dàn ý bài luận hoặc báo cáo.
+3. Giải thích code, debug lỗi phần mềm, hướng dẫn thuật toán, kiến trúc hệ thống và giải pháp công nghệ.
+4. Trợ giúp ý tưởng ghi chú nhanh (Quick Notes), tóm lược kiến thức khó hiểu một cách trực quan, dễ nhớ.
+5. Luôn trả lời bằng tiếng Việt tự nhiên, nhiệt tình, lịch sự và có cấu trúc rõ ràng (dùng danh sách gạch đầu dòng, tiêu đề ngắn, bôi đậm từ khóa quan trọng và dùng markdown code block nếu liên quan đến lập trình).
+
+--- LỊCH SỬ HỘI THOẠI GẦN ĐÂY ---
+${historyText}
+
+--- CÂU HỎI MỚI CỦA NGƯỜI DÙNG ---
+${cleanPrompt}
+
+Hãy trả lời trực tiếp, đầy đủ, súc tích và mạch lạc:`;
+
+    const answer = await callGeminiSafe({
+      contents: systemPrompt,
+      timeoutMs: 20000
+    });
+
+    return { success: true, data: answer };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Đã xảy ra lỗi khi trao đổi với Trợ lý AI.";
+    console.error("[askGeneralAI Error]:", message);
+    return { success: false, error: message };
   }
 }

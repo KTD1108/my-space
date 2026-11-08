@@ -34,7 +34,15 @@ export async function middleware(request: NextRequest) {
 
   // Kiểm tra phiên đăng nhập thực sự từ Supabase
   const { data: { user } } = await supabase.auth.getUser()
-  const isAuthPage = request.nextUrl.pathname.startsWith('/login')
+  const pathname = request.nextUrl.pathname
+  const isAuthPage = pathname.startsWith('/login')
+  const isAuthCallback = pathname.startsWith('/auth/callback')
+  const isResetPassword = pathname.startsWith('/reset-password')
+
+  // Auth callback và trang đặt lại mật khẩu được phép truy cập
+  if (isAuthCallback || isResetPassword) {
+    return supabaseResponse
+  }
 
   // Nếu chưa đăng nhập mà muốn vào web -> Đẩy ra trang Đăng nhập
   if (!user && !isAuthPage) {

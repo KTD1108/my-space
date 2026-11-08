@@ -24,6 +24,9 @@ import { logout } from "./login/actions";
 import { getProfileData } from "@/app/actions/data";
 import CommandPalette from "@/components/CommandPalette";
 import FocusStudyHub from "@/components/FocusStudyHub";
+import AIChatDrawer from "@/components/AIChatDrawer";
+import { MusicProvider } from "@/context/MusicContext";
+import GlobalMusicPlayer from "@/components/GlobalMusicPlayer";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -57,6 +60,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
   };
 
+  const isAuthRoute = pathname === "/login" || pathname === "/reset-password" || pathname.startsWith("/login/");
+
   useEffect(() => {
     let isMounted = true;
     async function loadProfile() {
@@ -67,13 +72,13 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         console.warn("Không thể tải thông tin hồ sơ người dùng:", e);
       }
     }
-    if (pathname !== '/login') {
+    if (!isAuthRoute) {
       loadProfile();
     }
     return () => {
       isMounted = false;
     };
-  }, []); // Chỉ chạy 1 lần khi layout khởi tạo
+  }, [isAuthRoute]);
 
   const navGroups = [
     {
@@ -93,10 +98,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     }
   ];
 
-  if (pathname === "/login") {
+  if (isAuthRoute) {
     return (
-      <div className="flex h-screen w-full bg-slate-50 dark:bg-slate-950 transition-colors">
-        <Toaster position="top-center" toastOptions={{ className: 'rounded-xl shadow-lg font-medium text-sm' }} />
+      <div className="flex min-h-screen w-full bg-slate-50 dark:bg-slate-950 transition-colors">
+        <Toaster 
+          position="top-center" 
+          toastOptions={{ 
+            className: 'rounded-xl shadow-lg font-medium text-sm border border-slate-200/80 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100' 
+          }} 
+        />
         {children}
       </div>
     );
@@ -106,10 +116,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const avatarUrl = profile?.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${displayName}&backgroundColor=e2e8f0,cbd5e1`;
 
   return (
-    <div className="flex h-screen w-full text-slate-800 dark:text-slate-100 bg-slate-50/70 dark:bg-slate-950 antialiased transition-colors">
-      <Toaster position="top-center" toastOptions={{ className: 'rounded-xl shadow-lg font-medium text-sm border border-slate-200/80 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100' }} />
-      <CommandPalette />
-      <FocusStudyHub />
+    <MusicProvider>
+      <div className="flex h-screen w-full text-slate-800 dark:text-slate-100 bg-slate-50/70 dark:bg-slate-950 antialiased transition-colors">
+        <Toaster position="top-center" toastOptions={{ className: 'rounded-xl shadow-lg font-medium text-sm border border-slate-200/80 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100' }} />
+        <CommandPalette />
+        <FocusStudyHub />
       
       {/* Nút mở menu & theme trên Mobile */}
       <div className="md:hidden fixed top-3.5 right-4 z-50 flex items-center gap-2">
@@ -295,10 +306,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </header>
 
         {/* Nội dung trang */}
-        <div className="flex-1 px-6 py-6 md:px-10 md:py-8 max-w-7xl w-full mx-auto">
+        <div className="flex-1 px-6 py-6 md:px-10 md:py-8 max-w-7xl w-full mx-auto pb-32">
           {children}
         </div>
       </main>
+
+      {/* Global Music Player (Thanh phát nhạc toàn cục) */}
+      <GlobalMusicPlayer />
+
+      {/* Trợ lý AI Toàn Năng (Floating Action Button & Chat Drawer) */}
+      <AIChatDrawer />
     </div>
+  </MusicProvider>
   );
 }

@@ -17,6 +17,7 @@ import {
   Folder,
   X,
   Sparkles,
+  Bot,
   ExternalLink
 } from "lucide-react";
 import { getCommandSearchData } from "@/app/actions/data";
@@ -102,6 +103,18 @@ export default function CommandPalette() {
         icon: <Sparkles size={16} className="text-amber-500" />,
         onSelect: () => { 
           window.dispatchEvent(new CustomEvent('open-focus-hub'));
+          setIsOpen(false); 
+        }
+      },
+      {
+        id: "action-ai-chat",
+        title: "Trò chuyện với Trợ lý AI Toàn năng",
+        subtitle: "Hỏi đáp bài vở, tra cứu kiến thức, ôn thi bằng Gemini Flash Lite",
+        category: "Công cụ đột phá",
+        badge: "AI 🤖",
+        icon: <Bot size={16} className="text-blue-500" />,
+        onSelect: () => { 
+          window.dispatchEvent(new CustomEvent('open-ai-chat'));
           setIsOpen(false); 
         }
       },
