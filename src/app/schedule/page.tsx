@@ -84,7 +84,7 @@ export default function SchedulePage() {
           headers: { 'Content-Type': file.type }
         });
       } catch (cloudErr) {
-        // Vẫn dùng được ảnh cục bộ nếu lưu cloud lỗi
+        console.warn("[CalendarBg] Lưu trữ cloud không thành công, sử dụng bản lưu trình duyệt:", cloudErr);
       }
 
       toast.success("Đã cài đặt ảnh nền thành công!", { id: toastId });
@@ -114,10 +114,14 @@ export default function SchedulePage() {
     }
   };
 
+  const getLocalDateStr = (d: Date = new Date()) => {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   const resetForm = () => {
     setTitle("");
     setDescription("");
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(getLocalDateStr());
     setStartTime("08:00");
     setEndTime("10:00");
     setColor("blue");
@@ -128,8 +132,8 @@ export default function SchedulePage() {
     setTitle(schedule.title);
     setDescription(schedule.description || "");
     setDate(schedule.date);
-    setStartTime(schedule.start_time.substring(0,5));
-    setEndTime(schedule.end_time.substring(0,5));
+    setStartTime(schedule.start_time ? schedule.start_time.substring(0, 5) : "08:00");
+    setEndTime(schedule.end_time ? schedule.end_time.substring(0, 5) : "10:00");
     setColor(schedule.color);
     setEditingId(schedule.id);
     setIsAdding(true);
@@ -198,7 +202,7 @@ export default function SchedulePage() {
   // Lịch Tháng Logic
   const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
   const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayDateStr = getLocalDateStr();
 
   const renderCalendar = () => {
     const year = currentMonth.getFullYear();
@@ -252,14 +256,15 @@ export default function SchedulePage() {
           <div className="space-y-1.5 overflow-hidden">
             {daySchedules.map((s: any) => {
               const col = colors.find(c => c.id === s.color) || colors[0];
+              const timeDisplay = s.start_time ? s.start_time.substring(0, 5) : '--:--';
               return (
                 <div 
                   key={s.id} 
                   onClick={(e) => { e.stopPropagation(); setViewingDay(dateStr); }}
                   className={`text-xs p-1.5 px-2 rounded-lg truncate font-bold transition-all ${s.is_completed ? 'opacity-40 line-through bg-slate-100 text-slate-500' : col.solid} hover:brightness-110 shadow-sm`}
-                  title={`${s.start_time.substring(0,5)} - ${s.title}`}
+                  title={`${timeDisplay} - ${s.title}`}
                 >
-                  {s.start_time.substring(0,5)} {s.title}
+                  {timeDisplay} {s.title}
                 </div>
               );
             })}
@@ -445,7 +450,7 @@ export default function SchedulePage() {
                                     <h4 className={`font-extrabold text-base mb-1 ${schedule.is_completed ? 'line-through text-slate-500' : 'text-slate-800'}`}>{schedule.title}</h4>
                                     <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-500">
                                       <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${schedule.is_completed ? 'bg-slate-200' : col.bg} ${schedule.is_completed ? '' : col.text}`}>
-                                        <Clock size={14} /> {schedule.start_time.substring(0,5)} - {schedule.end_time.substring(0,5)}
+                                        <Clock size={14} /> {schedule.start_time ? schedule.start_time.substring(0, 5) : '--:--'} - {schedule.end_time ? schedule.end_time.substring(0, 5) : '--:--'}
                                       </span>
                                       {!schedule.is_completed && isPast && <span className="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-1 rounded-lg"><AlertCircle size={14} /> Quá hạn</span>}
                                     </div>

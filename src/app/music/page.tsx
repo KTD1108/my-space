@@ -50,7 +50,7 @@ export default function MusicPage() {
         const resAi = await guessMusicGenre(file.name);
         if (resAi.success && resAi.data && resAi.data.length < 20) aiGenre = resAi.data;
       } catch (aiErr) {
-        console.error(aiErr);
+        console.warn("[Music] AI đoán thể loại không thành công:", aiErr);
       }
       
       const { signedUrl, fullPath } = await getUploadUrl(fileName);
@@ -92,7 +92,7 @@ export default function MusicPage() {
         const resAi = await guessMusicGenre(baseTitle + " " + finalUrl);
         if (resAi.success && resAi.data && resAi.data.length < 20) aiGenre = resAi.data;
       } catch (aiErr) {
-        console.error(aiErr);
+        console.warn("[Music] AI đoán thể loại không thành công:", aiErr);
       }
 
       const finalTitle = aiGenre ? `[${aiGenre}] ${baseTitle}` : baseTitle;

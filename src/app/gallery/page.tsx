@@ -135,7 +135,7 @@ export default function GalleryPage() {
     }
   };
 
-  const handleDelete = async (id: string, path: string) => {
+  const handleDelete = async (id: string, path: string, publicUrl?: string) => {
     if (!confirm("Bạn có chắc chắn muốn xóa bức ảnh này vĩnh viễn?")) return;
     
     const loadingToast = toast.loading("Đang xóa...");
@@ -143,7 +143,7 @@ export default function GalleryPage() {
       await deleteRecord('photos', id, path);
       toast.success("Đã xóa ảnh!", { id: loadingToast });
       fetchPhotos();
-      if (selectedPhoto === path) setSelectedPhoto(null);
+      if (selectedPhoto === path || (publicUrl && selectedPhoto === publicUrl)) setSelectedPhoto(null);
     } catch (error: any) {
       toast.error("Lỗi khi xóa: " + error.message, { id: loadingToast });
     }
@@ -327,7 +327,7 @@ export default function GalleryPage() {
                       >
                         <FolderInput size={16} />
                       </button>
-                      <button onClick={() => handleDelete(photo.id, photo.url)} className="p-2 bg-red-500/80 hover:bg-red-500 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center" title="Xóa ảnh">
+                      <button onClick={() => handleDelete(photo.id, photo.url, photo.publicUrl)} className="p-2 bg-red-500/80 hover:bg-red-500 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center" title="Xóa ảnh">
                         <Trash2 size={16} />
                       </button>
                     </div>

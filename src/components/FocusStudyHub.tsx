@@ -15,13 +15,11 @@ import {
   Maximize2, 
   CheckCircle2, 
   Sparkles,
-  BookOpen,
   VolumeX,
   Target
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { ambientAudio } from "@/lib/ambientAudio";
-import { getDocs } from "@/app/actions/data";
 
 type PomodoroMode = "focus" | "shortBreak" | "longBreak";
 
@@ -57,10 +55,6 @@ export default function FocusStudyHub() {
     focus: { active: false, volume: 50 },
   });
 
-  // DOCS PEEK STATE
-  const [docsList, setDocsList] = useState<any[]>([]);
-  const [selectedDocUrl, setSelectedDocUrl] = useState<string | null>(null);
-
   // Lắng nghe sự kiện mở Focus Hub toàn cục
   useEffect(() => {
     const handleOpen = () => {
@@ -71,13 +65,6 @@ export default function FocusStudyHub() {
     window.addEventListener("open-focus-hub", handleOpen);
     return () => window.removeEventListener("open-focus-hub", handleOpen);
   }, []);
-
-  // Tải danh sách tài liệu khi mở
-  useEffect(() => {
-    if (isOpen && docsList.length === 0) {
-      getDocs().then(setDocsList).catch(console.error);
-    }
-  }, [isOpen, docsList.length]);
 
   // Bộ đếm thời gian Pomodoro (Timer Loop)
   useEffect(() => {

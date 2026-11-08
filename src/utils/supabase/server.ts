@@ -16,13 +16,20 @@ export async function createClient() {
           try {
             cookieStore.set({ name, value, ...options })
           } catch (error) {
-            // Server Component lỗi nếu gọi set() sau khi render, có thể bỏ qua
+            // Next.js Server Component ném ngoại lệ nếu cookieStore.set được gọi ngoài Server Action / Route Handler
+            if (process.env.NODE_ENV === 'development') {
+              console.debug(`[Supabase SSR] Cookie set ignored in Server Component context for ${name}:`, (error as Error).message);
+            }
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options })
-          } catch (error) {}
+          } catch (error) {
+            if (process.env.NODE_ENV === 'development') {
+              console.debug(`[Supabase SSR] Cookie remove ignored in Server Component context for ${name}:`, (error as Error).message);
+            }
+          }
         },
       },
     }

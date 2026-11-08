@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { getDashboardStats, getProfileData, getSchedules, getPhotos } from './actions/data';
+import { getDashboardStats, getProfileData, getSchedules, getRecentPhoto } from './actions/data';
 import { 
   CalendarDays, 
   FileText, 
@@ -31,23 +31,24 @@ export default function Home() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [s, p, scheds, photos] = await Promise.all([
+        const [s, p, scheds, photoUrl] = await Promise.all([
           getDashboardStats(),
           getProfileData(),
           getSchedules(),
-          getPhotos()
+          getRecentPhoto()
         ]);
         setStats(s);
         setProfile(p as any);
 
-        const todayStr = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         setTodaySchedules(scheds.filter((sch: any) => sch.date === todayStr && !sch.is_completed).slice(0, 3));
 
-        if (photos && photos.length > 0) {
-          setRecentPhoto(photos[0].publicUrl);
+        if (photoUrl) {
+          setRecentPhoto(photoUrl);
         }
       } catch (e) {
-        console.error(e);
+        console.error("Lỗi khi tải dữ liệu trang chủ:", e);
       } finally {
         setLoading(false);
       }
@@ -164,7 +165,7 @@ export default function Home() {
                 <div key={sch.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 hover:bg-slate-100/60 transition-colors">
                   <h4 className="font-semibold text-slate-800 text-xs truncate">{sch.title}</h4>
                   <p className="text-[10px] font-medium text-slate-400 mt-1 flex items-center gap-1">
-                    <Clock size={11} /> {sch.start_time.substring(0,5)}
+                    <Clock size={11} /> {sch.start_time ? sch.start_time.substring(0, 5) : '--:--'}
                   </p>
                 </div>
               ))

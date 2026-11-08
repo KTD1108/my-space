@@ -2,6 +2,21 @@
 import { createClient } from '@/utils/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase-server' 
 
+// Bộ nhớ đệm In-Memory lưu trữ các Signed URL hợp lệ (TTL mặc định đến 12h)
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+export async function getCachedSignedUrl(path: string, expiresInSec: number = 86400): Promise<string> {
+  if (!path || path.startsWith('http')) return path || '';
+  const cached = signedUrlCache.get(path);
+  if (cached && cached.expiresAt > Date.now() + 60000) {
+    return cached.url;
+  }
+  const { data, error } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(path, expiresInSec);
+  if (error || !data?.signedUrl) return '';
+  signedUrlCache.set(path, { url: data.signedUrl, expiresAt: Date.now() + expiresInSec * 1000 });
+  return data.signedUrl;
+}
+
 async function getUser() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -12,13 +27,12 @@ async function getUser() {
 export async function getUploadUrl(path: string) {
   const user = await getUser();
   const fullPath = `${user.id}/${path}`;
-  const supabase = await createClient();
   const { data, error } = await supabaseAdmin.storage.from('personal_files').createSignedUploadUrl(fullPath);
   if (error) throw new Error(error.message);
   return { signedUrl: data.signedUrl, fullPath };
 }
 
-export async function addRecord(table: string, payload: any) {
+export async function addRecord(table: string, payload: Record<string, unknown>) {
   const user = await getUser();
   const supabase = await createClient();
   const { error } = await supabase.from(table).insert([{ ...payload, user_id: user.id }]);
@@ -27,23 +41,57 @@ export async function addRecord(table: string, payload: any) {
 
 export async function deleteRecord(table: string, id: string, path: string) {
   const supabase = await createClient();
+  const { error: dbError } = await supabase.from(table).delete().eq('id', id);
+  if (dbError) throw new Error(`Lỗi xóa bản ghi: ${dbError.message}`);
+
   if (path && !path.startsWith('http')) {
-    await supabaseAdmin.storage.from('personal_files').remove([path]);
+    signedUrlCache.delete(path);
+    const { error: storageError } = await supabaseAdmin.storage.from('personal_files').remove([path]);
+    if (storageError) {
+      console.warn(`[Storage] Cảnh báo xóa file ${path}:`, storageError.message);
+    }
   }
-  await supabase.from(table).delete().eq('id', id);
 }
 
-// ---- TỐI ƯU HÓA: XIN GIẤY PHÉP (SIGNED URL) HÀNG LOẠT (BULK) ----
+// Lấy 1 ảnh mới nhất phục vụ Dashboard nhanh nhất (chỉ tải 1 bản ghi và 1 signed URL)
+export async function getRecentPhoto(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.from('photos').select('url').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (!data?.url) return null;
+  return getCachedSignedUrl(data.url);
+}
+
+// ---- TỐI ƯU HÓA: XIN GIẤY PHÉP (SIGNED URL) HÀNG LOẠT VỚI BỘ NHỚ ĐỆM ----
 export async function getPhotos() {
   const supabase = await createClient();
   const { data } = await supabase.from('photos').select('*').order('created_at', { ascending: false });
   if (!data || data.length === 0) return [];
   
-  // Tối ưu: Xin giấy phép 1 lần duy nhất cho toàn bộ ảnh
-  const paths = data.map(p => p.url);
-  const { data: urls } = await supabaseAdmin.storage.from('personal_files').createSignedUrls(paths, 60 * 60 * 24);
+  // Tận dụng cache trước, chỉ xin cấp phép cho những ảnh chưa có trong cache
+  const uncachedPaths: string[] = [];
+  const resultMap: Record<string, string> = {};
+
+  for (const p of data) {
+    const cached = signedUrlCache.get(p.url);
+    if (cached && cached.expiresAt > Date.now() + 60000) {
+      resultMap[p.url] = cached.url;
+    } else {
+      uncachedPaths.push(p.url);
+    }
+  }
+
+  if (uncachedPaths.length > 0) {
+    const { data: urls } = await supabaseAdmin.storage.from('personal_files').createSignedUrls(uncachedPaths, 60 * 60 * 24);
+    uncachedPaths.forEach((path, i) => {
+      const signedUrl = urls?.[i]?.signedUrl || '';
+      if (signedUrl) {
+        signedUrlCache.set(path, { url: signedUrl, expiresAt: Date.now() + 86400 * 1000 });
+        resultMap[path] = signedUrl;
+      }
+    });
+  }
   
-  return data.map((p, i) => ({ ...p, publicUrl: urls?.[i]?.signedUrl || '' }));
+  return data.map(p => ({ ...p, publicUrl: resultMap[p.url] || '' }));
 }
 
 export async function getSongs() {
@@ -52,12 +100,27 @@ export async function getSongs() {
   if (!data || data.length === 0) return [];
   
   const fileSongs = data.filter(s => !(s.url && s.url.startsWith('http')));
-  const paths = fileSongs.map(s => s.url);
-  
-  let signedUrlsMap: Record<string, string> = {};
-  if (paths.length > 0) {
-    const { data: urls } = await supabaseAdmin.storage.from('personal_files').createSignedUrls(paths, 60 * 60 * 24);
-    fileSongs.forEach((s, i) => { signedUrlsMap[s.url] = urls?.[i]?.signedUrl || ''; });
+  const uncachedPaths: string[] = [];
+  const signedUrlsMap: Record<string, string> = {};
+
+  for (const s of fileSongs) {
+    const cached = signedUrlCache.get(s.url);
+    if (cached && cached.expiresAt > Date.now() + 60000) {
+      signedUrlsMap[s.url] = cached.url;
+    } else {
+      uncachedPaths.push(s.url);
+    }
+  }
+
+  if (uncachedPaths.length > 0) {
+    const { data: urls } = await supabaseAdmin.storage.from('personal_files').createSignedUrls(uncachedPaths, 60 * 60 * 24);
+    uncachedPaths.forEach((path, i) => {
+      const signedUrl = urls?.[i]?.signedUrl || '';
+      if (signedUrl) {
+        signedUrlCache.set(path, { url: signedUrl, expiresAt: Date.now() + 86400 * 1000 });
+        signedUrlsMap[path] = signedUrl;
+      }
+    });
   }
 
   return data.map(s => {
@@ -74,12 +137,27 @@ export async function getDocs() {
   if (!data || data.length === 0) return [];
   
   const fileDocs = data.filter(d => d.type !== 'link');
-  const paths = fileDocs.map(d => d.url);
-  
-  let signedUrlsMap: Record<string, string> = {};
-  if (paths.length > 0) {
-    const { data: urls } = await supabaseAdmin.storage.from('personal_files').createSignedUrls(paths, 60 * 60 * 24);
-    fileDocs.forEach((d, i) => { signedUrlsMap[d.url] = urls?.[i]?.signedUrl || ''; });
+  const uncachedPaths: string[] = [];
+  const signedUrlsMap: Record<string, string> = {};
+
+  for (const d of fileDocs) {
+    const cached = signedUrlCache.get(d.url);
+    if (cached && cached.expiresAt > Date.now() + 60000) {
+      signedUrlsMap[d.url] = cached.url;
+    } else {
+      uncachedPaths.push(d.url);
+    }
+  }
+
+  if (uncachedPaths.length > 0) {
+    const { data: urls } = await supabaseAdmin.storage.from('personal_files').createSignedUrls(uncachedPaths, 60 * 60 * 24);
+    uncachedPaths.forEach((path, i) => {
+      const signedUrl = urls?.[i]?.signedUrl || '';
+      if (signedUrl) {
+        signedUrlCache.set(path, { url: signedUrl, expiresAt: Date.now() + 86400 * 1000 });
+        signedUrlsMap[path] = signedUrl;
+      }
+    });
   }
 
   return data.map(d => {
@@ -124,8 +202,10 @@ export async function addCategory(name: string) {
 
 export async function deleteCategory(id: string, name: string) {
   const supabase = await createClient();
-  await supabase.from('documents').update({ category: 'Chung' }).eq('category', name);
-  await supabase.from('categories').delete().eq('id', id);
+  const { error: updateErr } = await supabase.from('documents').update({ category: 'Chung' }).eq('category', name);
+  if (updateErr) throw new Error(`Lỗi cập nhật danh mục tài liệu: ${updateErr.message}`);
+  const { error: delErr } = await supabase.from('categories').delete().eq('id', id);
+  if (delErr) throw new Error(`Lỗi xóa danh mục: ${delErr.message}`);
 }
 
 export async function getCommandSearchData() {
@@ -160,8 +240,10 @@ export async function addAlbum(name: string) {
 
 export async function deleteAlbum(id: string, name: string) {
   const supabase = await createClient();
-  await supabase.from('photos').update({ album: 'Chung' }).eq('album', name);
-  await supabase.from('albums').delete().eq('id', id);
+  const { error: updateErr } = await supabase.from('photos').update({ album: 'Chung' }).eq('album', name);
+  if (updateErr) throw new Error(`Lỗi cập nhật album ảnh: ${updateErr.message}`);
+  const { error: delErr } = await supabase.from('albums').delete().eq('id', id);
+  if (delErr) throw new Error(`Lỗi xóa album: ${delErr.message}`);
 }
 
 export async function movePhotoToAlbum(photoId: string, newAlbum: string) {
@@ -178,7 +260,7 @@ export async function updateDocCategory(docId: string, newCategory: string) {
 
 export async function updateProfileMetadata(name: string, avatarPath?: string) {
   const supabase = await createClient();
-  const updates: any = { display_name: name };
+  const updates: Record<string, string> = { display_name: name };
   if (avatarPath) updates.avatar_url = avatarPath;
   const { error } = await supabase.auth.updateUser({ data: updates });
   if (error) throw new Error(error.message);
@@ -190,8 +272,7 @@ export async function getProfileData() {
   if (!user) return null;
   let publicAvatarUrl = null;
   if (user.user_metadata?.avatar_url) {
-    const { data } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(user.user_metadata.avatar_url, 60 * 60 * 24 * 7);
-    publicAvatarUrl = data?.signedUrl;
+    publicAvatarUrl = await getCachedSignedUrl(user.user_metadata.avatar_url, 60 * 60 * 24 * 7);
   }
   return {
     email: user.email,
@@ -207,7 +288,7 @@ export async function getSchedules() {
   return data || [];
 }
 
-export async function addSchedule(payload: any) {
+export async function addSchedule(payload: Record<string, unknown>) {
   const user = await getUser();
   const supabase = await createClient();
   const { error } = await supabase.from('study_schedules').insert([{ ...payload, user_id: user.id }]);
@@ -220,7 +301,7 @@ export async function updateScheduleStatus(id: string, is_completed: boolean) {
   if (error) throw new Error(error.message);
 }
 
-export async function updateSchedule(id: string, payload: any) {
+export async function updateSchedule(id: string, payload: Record<string, unknown>) {
   const supabase = await createClient();
   const { error } = await supabase.from('study_schedules').update(payload).eq('id', id);
   if (error) throw new Error(error.message);
@@ -237,7 +318,7 @@ export async function createShareLink(type: 'photo' | 'doc', itemId: string) {
   const user = await getUser();
   const supabase = await createClient();
   
-  const { data: existing } = await supabase.from('shared_links').select('id').eq('item_type', type).eq('item_id', itemId).single();
+  const { data: existing } = await supabase.from('shared_links').select('id').eq('item_type', type).eq('item_id', itemId).maybeSingle();
   if (existing) return existing.id;
   
   const { data, error } = await supabase.from('shared_links').insert([{
@@ -255,30 +336,24 @@ export async function getSharedItemInfo(shareId: string) {
   const { data: link, error: linkErr } = await supabaseAdmin.from('shared_links').select('*').eq('id', shareId).single();
   if (linkErr || !link) throw new Error('Liên kết không tồn tại hoặc đã bị khóa.');
 
-  let itemDetails = null;
-  if (link.item_type === 'photo') {
-    const { data } = await supabaseAdmin.from('photos').select('*').eq('id', link.item_id).single();
-    itemDetails = data;
-  } else if (link.item_type === 'doc') {
-    const { data } = await supabaseAdmin.from('documents').select('*').eq('id', link.item_id).single();
-    itemDetails = data;
-  }
+  // Tối ưu hóa: Chạy song song truy vấn item và thông tin người sở hữu
+  const [itemRes, userRes] = await Promise.all([
+    link.item_type === 'photo' 
+      ? supabaseAdmin.from('photos').select('*').eq('id', link.item_id).single()
+      : supabaseAdmin.from('documents').select('*').eq('id', link.item_id).single(),
+    supabaseAdmin.auth.admin.getUserById(link.user_id)
+  ]);
 
+  const itemDetails = itemRes.data;
   if (!itemDetails) throw new Error('Tệp này đã bị chủ sở hữu xóa.');
 
-  let publicUrl = itemDetails.url;
-  if (itemDetails.url && !itemDetails.url.startsWith('http')) {
-     const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(itemDetails.url, 60 * 60 * 24); 
-     publicUrl = urlData?.signedUrl;
-  }
+  const [publicUrl, ownerAvatar] = await Promise.all([
+    getCachedSignedUrl(itemDetails.url),
+    userRes.data?.user?.user_metadata?.avatar_url 
+      ? getCachedSignedUrl(userRes.data.user.user_metadata.avatar_url)
+      : Promise.resolve(null)
+  ]);
 
-  const { data: userData } = await supabaseAdmin.auth.admin.getUserById(link.user_id);
-  const ownerName = userData?.user?.user_metadata?.display_name || 'Một người dùng';
-  let ownerAvatar = null;
-  if (userData?.user?.user_metadata?.avatar_url) {
-    const { data: avaData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(userData.user.user_metadata.avatar_url, 60 * 60 * 24);
-    ownerAvatar = avaData?.signedUrl;
-  }
-
+  const ownerName = userRes.data?.user?.user_metadata?.display_name || 'Một người dùng';
   return { type: link.item_type, item: { ...itemDetails, publicUrl }, ownerName, ownerAvatar };
 }

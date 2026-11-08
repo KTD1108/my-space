@@ -6,11 +6,11 @@ class AmbientAudioEngine {
 
   private getContext(): AudioContext {
     if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
     }
     if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      this.ctx.resume().catch((err) => console.warn("[AmbientAudio] Không thể resume AudioContext:", err));
     }
     return this.ctx;
   }
@@ -56,7 +56,12 @@ class AmbientAudioEngine {
     noise.start();
     this.sounds.set('rain', {
       gain: gainNode,
-      stop: () => { try { noise.stop(); } catch(e){} }
+      stop: () => {
+        try { noise.stop(); } catch (e) { console.warn("[AmbientAudio] Dừng noise lỗi:", e); }
+        try { noise.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt noise lỗi:", e); }
+        try { filter.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt filter lỗi:", e); }
+        try { gainNode.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt gain lỗi:", e); }
+      }
     });
   }
 
@@ -104,7 +109,12 @@ class AmbientAudioEngine {
     this.sounds.set('waves', {
       gain: gainNode,
       stop: () => {
-        try { noise.stop(); lfo.stop(); } catch(e){}
+        try { noise.stop(); lfo.stop(); } catch (e) { console.warn("[AmbientAudio] Dừng sóng lỗi:", e); }
+        try { noise.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt sóng noise lỗi:", e); }
+        try { lfo.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt lfo lỗi:", e); }
+        try { lfoGain.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt lfoGain lỗi:", e); }
+        try { filter.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt filter lỗi:", e); }
+        try { gainNode.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt gain lỗi:", e); }
       }
     });
   }
@@ -147,7 +157,12 @@ class AmbientAudioEngine {
     noise.start();
     this.sounds.set('fireplace', {
       gain: gainNode,
-      stop: () => { try { noise.stop(); } catch(e){} }
+      stop: () => {
+        try { noise.stop(); } catch (e) { console.warn("[AmbientAudio] Dừng lửa lỗi:", e); }
+        try { noise.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt noise lửa lỗi:", e); }
+        try { filter.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt filter lửa lỗi:", e); }
+        try { gainNode.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt gain lửa lỗi:", e); }
+      }
     });
   }
 
@@ -185,7 +200,12 @@ class AmbientAudioEngine {
     noise.start();
     this.sounds.set('focus', {
       gain: gainNode,
-      stop: () => { try { noise.stop(); } catch(e){} }
+      stop: () => {
+        try { noise.stop(); } catch (e) { console.warn("[AmbientAudio] Dừng focus lỗi:", e); }
+        try { noise.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt noise focus lỗi:", e); }
+        try { filter.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt filter focus lỗi:", e); }
+        try { gainNode.disconnect(); } catch (e) { console.warn("[AmbientAudio] Ngắt gain focus lỗi:", e); }
+      }
     });
   }
 
@@ -231,7 +251,9 @@ class AmbientAudioEngine {
 
       osc.start();
       osc.stop(ctx.currentTime + 1.2);
-    } catch(e) {}
+    } catch (e) {
+      console.warn("[AmbientAudio] Phát chime lỗi:", e);
+    }
   }
 }
 

@@ -11,53 +11,115 @@ function getAIClient() {
   return new GoogleGenAI({ apiKey });
 }
 
-// Hàm trích xuất văn bản từ nhiều định dạng tài liệu
+// Danh sách mô hình ưu tiên: bắt đầu với mô hình tốc độ cao và ổn định nhất, có fallback tự động
+const PREFERRED_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-3.8-flash'
+];
+
+interface AIGenerateOptions {
+  contents: string;
+  isJson?: boolean;
+  timeoutMs?: number;
+}
+
+// Helper thực thi gọi AI an toàn: Có Timeout guard, Model Fallback và Retry tự động
+async function callGeminiSafe(options: AIGenerateOptions): Promise<string> {
+  const ai = getAIClient();
+  const timeoutMs = options.timeoutMs || 15000;
+  let lastError: Error | null = null;
+
+  for (const model of PREFERRED_MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout (${timeoutMs}ms) khi gọi model ${model}`)), timeoutMs)
+        );
+
+        const config: Record<string, unknown> = {};
+        if (options.isJson) {
+          config.responseMimeType = "application/json";
+        }
+
+        const apiPromise = ai.models.generateContent({
+          model,
+          contents: options.contents,
+          config: Object.keys(config).length > 0 ? config : undefined
+        });
+
+        const response = await Promise.race([apiPromise, timeoutPromise]);
+        const text = response?.text?.trim();
+        if (text) return text;
+      } catch (err: unknown) {
+        lastError = err as Error;
+        const errMsg = (err as Error)?.message || '';
+        const status = (err as { status?: number })?.status;
+
+        // Nếu model không tồn tại (404), chuyển ngay sang model tiếp theo
+        if (status === 404 || errMsg.includes('not found') || errMsg.includes('no longer available')) {
+          break;
+        }
+
+        // Nếu quá tải (503) hoặc rate limit (429), chờ backoff rồi thử lại
+        if (status === 503 || status === 429 || errMsg.includes('demand')) {
+          await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+          continue;
+        }
+
+        // Lỗi khác: thử model dự phòng tiếp theo
+        break;
+      }
+    }
+  }
+
+  throw lastError || new Error("Không thể kết nối đến Trợ lý AI. Vui lòng thử lại sau.");
+}
+
+// Tối ưu hóa: Trích xuất trực tiếp bằng storage.download() thay vì 2 chặng (createSignedUrl + fetch)
 async function extractDocText(docType: string, docUrl: string): Promise<string> {
   let text = "";
 
   if (docType === 'link') {
-    const res = await fetch(docUrl);
+    const res = await fetch(docUrl, { signal: AbortSignal.timeout(10000) });
     const html = await res.text();
     text = html.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').substring(0, 16000); 
   } else if (docType === 'pdf') {
-    if (typeof global !== 'undefined' && typeof (global as any).DOMMatrix === 'undefined') {
-      (global as any).DOMMatrix = class DOMMatrix { constructor() {} };
+    if (typeof global !== 'undefined' && typeof (global as unknown as { DOMMatrix: unknown }).DOMMatrix === 'undefined') {
+      (global as unknown as { DOMMatrix: unknown }).DOMMatrix = class DOMMatrix { constructor() {} };
     }
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pdfParseModule = require('pdf-parse/lib/pdf-parse.js');
     const pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule.default;
     
-    const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
-    if (!urlData?.signedUrl) throw new Error("Không thể truy cập file PDF từ kho lưu trữ.");
+    const { data: blob, error } = await supabaseAdmin.storage.from('personal_files').download(docUrl);
+    if (error || !blob) throw new Error("Không thể tải file PDF từ kho lưu trữ.");
     
-    const res = await fetch(urlData.signedUrl);
-    const buffer = await res.arrayBuffer();
-    
-    const parsed = await pdfParse(Buffer.from(buffer));
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    const parsed = await pdfParse(buffer);
     text = parsed.text.substring(0, 16000); 
   } else if (docType === 'docx') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mammothModule = require('mammoth');
     const mammoth = typeof mammothModule.extractRawText === 'function' ? mammothModule : mammothModule.default;
     
-    const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
-    if (!urlData?.signedUrl) throw new Error("Không thể truy cập file Word từ kho lưu trữ.");
+    const { data: blob, error } = await supabaseAdmin.storage.from('personal_files').download(docUrl);
+    if (error || !blob) throw new Error("Không thể tải file Word từ kho lưu trữ.");
     
-    const res = await fetch(urlData.signedUrl);
-    const buffer = await res.arrayBuffer();
-    
-    const result = await mammoth.extractRawText({ buffer: Buffer.from(buffer) });
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    const result = await mammoth.extractRawText({ buffer });
     text = result.value.substring(0, 16000);
   } else if (['txt', 'md', 'csv', 'json'].includes(docType?.toLowerCase())) {
-    const { data: urlData } = await supabaseAdmin.storage.from('personal_files').createSignedUrl(docUrl, 60);
-    if (!urlData?.signedUrl) throw new Error("Không thể truy cập file văn bản.");
+    const { data: blob, error } = await supabaseAdmin.storage.from('personal_files').download(docUrl);
+    if (error || !blob) throw new Error("Không thể tải file văn bản từ kho lưu trữ.");
     
-    const res = await fetch(urlData.signedUrl);
-    text = (await res.text()).substring(0, 16000);
+    text = (await blob.text()).substring(0, 16000);
   } else {
     throw new Error(`Định dạng .${docType} chưa được hỗ trợ đọc sâu. Vui lòng dùng file PDF, Word (.docx), TXT, hoặc Link Web.`);
   }
 
   if (!text || text.trim().length < 20) {
-    throw new Error("Nội dung tài liệu quá ngắn hoặc là file ảnh scan chưa có lớp ký tự.");
+    throw new Error("Nội dung tài liệu quá ngắn hoặc là file ảnh scan chưa có lớp ký tự nhận dạng.");
   }
 
   return text;
@@ -65,40 +127,28 @@ async function extractDocText(docType: string, docUrl: string): Promise<string> 
 
 export async function guessMusicGenre(songTitle: string) {
   try {
-    const ai = getAIClient();
     const prompt = `Bạn là một chuyên gia âm nhạc. Dựa vào tên bài hát hoặc liên kết "${songTitle}", hãy đoán thể loại nhạc của nó (Ví dụ: Pop, EDM, Lofi, Ballad, Rap...). Trả về ĐÚNG 1 TỪ HOẶC CỤM TỪ NGẮN NHẤT mô tả thể loại, tuyệt đối không giải thích thêm.`;
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-    });
-    return { success: true, data: (response.text || '').trim().replace(/[\[\]"']/g, '') }; 
-  } catch (error: any) {
-    return { success: false, error: error.message };
+    const text = await callGeminiSafe({ contents: prompt, timeoutMs: 8000 });
+    return { success: true, data: text.replace(/[\[\]"']/g, '') }; 
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message };
   }
 }
 
 export async function categorizeDoc(docTitle: string) {
   try {
-    const ai = getAIClient();
     const prompt = `Dựa vào tên tài liệu hoặc liên kết URL sau: "${docTitle}", hãy phân loại nó thuộc chủ đề gì (Ví dụ: Lập trình, Toán học, Giải trí, Kinh tế, Ngoại ngữ, Khác...). Trả về đúng 1 cụm từ ngắn gọn làm tên Danh mục, tuyệt đối không giải thích.`;
-    
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-    });
-    return { success: true, data: (response.text || '').trim().replace(/[\[\]"']/g, '') };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+    const text = await callGeminiSafe({ contents: prompt, timeoutMs: 8000 });
+    return { success: true, data: text.replace(/[\[\]"']/g, '') };
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message };
   }
 }
 
 // 1. TÓM TẮT TÀI LIỆU CỐT LÕI
 export async function generateDocSummary(docId: string, docType: string, docUrl: string) {
   try {
-    const ai = getAIClient();
     const content = await extractDocText(docType, docUrl);
-
     const prompt = `Hãy đóng vai một trợ lý học tập cao cấp. Tóm tắt nội dung tài liệu sau đây một cách súc tích, dễ hiểu, bằng tiếng Việt.
 Yêu cầu:
 - Nêu rõ 3 đến 5 ý cốt lõi quan trọng nhất dưới dạng gạch đầu dòng rõ ràng.
@@ -106,19 +156,13 @@ Yêu cầu:
 Tài liệu:
 ${content}`;
     
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-    });
-    
-    const summary = (response.text || '').trim();
-    
+    const summary = await callGeminiSafe({ contents: prompt, timeoutMs: 15000 });
     const supabase = await createClient();
     await supabase.from('documents').update({ ai_summary: summary }).eq('id', docId);
 
     return { success: true, data: summary };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message };
   }
 }
 
@@ -130,9 +174,7 @@ export async function askDocQuestion(
   history: { role: 'user' | 'assistant'; text: string }[] = []
 ) {
   try {
-    const ai = getAIClient();
     const content = await extractDocText(docType, docUrl);
-
     const historyPrompt = history.slice(-4).map(h => `${h.role === 'user' ? 'Người dùng' : 'AI'}: ${h.text}`).join('\n');
 
     const prompt = `Bạn là Trợ lý Học tập AI thông minh, hỗ trợ người dùng học và nghiên cứu tài liệu.
@@ -150,14 +192,10 @@ ${question}
 
 Hãy trả lời trực tiếp, mạch lạc và trình bày đẹp mắt:`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-    });
-
-    return { success: true, answer: (response.text || '').trim() };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+    const answer = await callGeminiSafe({ contents: prompt, timeoutMs: 15000 });
+    return { success: true, answer };
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message };
   }
 }
 
@@ -171,9 +209,7 @@ export interface QuizQuestion {
 
 export async function generateDocQuiz(docType: string, docUrl: string, count: number = 4) {
   try {
-    const ai = getAIClient();
     const content = await extractDocText(docType, docUrl);
-
     const prompt = `Dựa vào nội dung tài liệu sau, hãy tạo chính xác ${count} câu hỏi trắc nghiệm khách quan để kiểm tra kiến thức của người đọc.
 Mỗi câu hỏi phải có:
 - Nội dung câu hỏi rõ ràng.
@@ -181,7 +217,7 @@ Mỗi câu hỏi phải có:
 - Chỉ số đáp án đúng (correctAnswer là số nguyên từ 0 đến 3 tương ứng với A, B, C, D).
 - Lời giải thích ngắn gọn tại sao phương án đó đúng.
 
-YÊU CẦU ĐẶC BIỆT: Trả về ĐÚNG định dạng JSON mảng (Array of objects), KHÔNG kèm bất kỳ lời dẫn hay giải thích thừa thãi nào ngoài JSON.
+YÊU CẦU: Trả về ĐÚNG định dạng JSON mảng (Array of objects), KHÔNG kèm markdown hoặc lời giải thích ngoài JSON.
 Mẫu JSON:
 [
   {
@@ -195,21 +231,16 @@ Mẫu JSON:
 Nội dung tài liệu:
 ${content}`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-    });
-
-    let raw = (response.text || '').trim();
-    // Dọn dẹp markdown code blocks nếu có
+    const text = await callGeminiSafe({ contents: prompt, isJson: true, timeoutMs: 18000 });
+    let raw = text.trim();
     if (raw.startsWith('```')) {
       raw = raw.replace(/^```[a-z]*\n/, '').replace(/\n```$/, '').trim();
     }
 
     const quiz: QuizQuestion[] = JSON.parse(raw);
     return { success: true, quiz };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message };
   }
 }
 
@@ -221,15 +252,13 @@ export interface Flashcard {
 
 export async function generateDocFlashcards(docType: string, docUrl: string) {
   try {
-    const ai = getAIClient();
     const content = await extractDocText(docType, docUrl);
-
     const prompt = `Dựa vào tài liệu sau, hãy trích xuất 4 đến 6 khái niệm, định nghĩa hoặc công thức cốt lõi nhất để làm Thẻ ghi nhớ (Flashcard) ôn thi.
 Mỗi thẻ gồm:
 - "front": Khái niệm hoặc câu hỏi ngắn ở mặt trước thẻ.
 - "back": Định nghĩa, câu trả lời hoặc ví dụ ở mặt sau thẻ (ngắn gọn, dễ nhớ).
 
-Trả về ĐÚNG định dạng JSON mảng thuần túy:
+Trả về ĐÚNG định dạng JSON mảng:
 [
   { "front": "Khái niệm A", "back": "Giải nghĩa ngắn gọn của khái niệm A..." }
 ]
@@ -237,19 +266,15 @@ Trả về ĐÚNG định dạng JSON mảng thuần túy:
 Tài liệu:
 ${content}`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-    });
-
-    let raw = (response.text || '').trim();
+    const text = await callGeminiSafe({ contents: prompt, isJson: true, timeoutMs: 18000 });
+    let raw = text.trim();
     if (raw.startsWith('```')) {
       raw = raw.replace(/^```[a-z]*\n/, '').replace(/\n```$/, '').trim();
     }
 
     const flashcards: Flashcard[] = JSON.parse(raw);
     return { success: true, flashcards };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    return { success: false, error: (error as Error).message };
   }
 }

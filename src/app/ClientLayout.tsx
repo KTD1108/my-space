@@ -30,16 +30,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [profile, setProfile] = useState<{name: string, avatar?: string | null, email?: string} | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadProfile() {
       try {
         const data = await getProfileData();
-        if (data) setProfile(data);
+        if (data && isMounted) setProfile(data);
       } catch (e) {
-        // Ignored
+        console.warn("Không thể tải thông tin hồ sơ người dùng:", e);
       }
     }
-    if (pathname !== '/login') loadProfile();
-  }, [pathname]);
+    if (pathname !== '/login') {
+      loadProfile();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Chỉ chạy 1 lần khi layout khởi tạo, không chạy lại theo từng lượt chuyển trang
 
   const navGroups = [
     {
