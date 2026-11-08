@@ -2,7 +2,12 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
-  const cookieStore = await cookies()
+  let cookieStore: Awaited<ReturnType<typeof cookies>> | null = null;
+  try {
+    cookieStore = await cookies();
+  } catch {
+    // Được gọi bên ngoài Next.js request scope (ví dụ: test suite hoặc CLI)
+  }
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,9 +15,10 @@ export async function createClient() {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value
+          return cookieStore ? cookieStore.get(name)?.value : undefined;
         },
         set(name: string, value: string, options: CookieOptions) {
+          if (!cookieStore) return;
           try {
             cookieStore.set({ name, value, ...options })
           } catch (error) {
@@ -23,6 +29,7 @@ export async function createClient() {
           }
         },
         remove(name: string, options: CookieOptions) {
+          if (!cookieStore) return;
           try {
             cookieStore.set({ name, value: '', ...options })
           } catch (error) {
