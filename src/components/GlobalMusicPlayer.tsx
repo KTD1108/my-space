@@ -16,7 +16,6 @@ import {
   ChevronUp,
   X,
   Disc,
-  Cloud,
   ListMusic,
   ExternalLink,
   Music,
@@ -24,6 +23,9 @@ import {
   Plus,
 } from "lucide-react";
 import { useMusic, SongItem } from "@/context/MusicContext";
+import { detectMusicPlatform } from "@/lib/musicPlatforms";
+import { MusicEmbedWidget } from "./music/MusicEmbedWidget";
+import { PlatformBadge } from "./music/PlatformBadge";
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -62,7 +64,7 @@ export default function GlobalMusicPlayer() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [queueTab, setQueueTab] = useState<"queue" | "playlist">("queue");
-  const [showSoundCloudWidget, setShowSoundCloudWidget] = useState(true);
+  const [showEmbedWidget, setShowEmbedWidget] = useState(true);
 
   if (!currentSong) return null;
 
@@ -88,26 +90,26 @@ export default function GlobalMusicPlayer() {
             <div
               className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-105 ${
                 currentSong.isLink
-                  ? "bg-gradient-to-tr from-orange-500 to-amber-500 text-white"
+                  ? "bg-gradient-to-tr from-purple-500 to-indigo-500 text-white"
                   : "bg-gradient-to-tr from-purple-600 to-indigo-600 text-white"
               }`}
             >
-              {currentSong.isLink ? (
-                <Cloud size={16} />
-              ) : (
-                <Disc
-                  size={18}
-                  className={isPlaying ? "animate-spin" : ""}
-                  style={{ animationDuration: "3.5s" }}
-                />
-              )}
+              <Disc
+                size={18}
+                className={isPlaying ? "animate-spin" : ""}
+                style={{ animationDuration: "3.5s" }}
+              />
             </div>
             <div className="truncate">
               <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                 {cleanTitle}
               </p>
               <p className="text-[10px] text-slate-400 font-medium truncate">
-                {currentSong.isLink ? "SoundCloud" : isPlaying ? "Đang phát..." : "Tạm dừng"}
+                {currentSong.isLink
+                  ? detectMusicPlatform(currentSong.publicUrl).name
+                  : isPlaying
+                  ? "Đang phát..."
+                  : "Tạm dừng"}
               </p>
             </div>
           </div>
@@ -341,19 +343,15 @@ export default function GlobalMusicPlayer() {
             <div
               className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border border-white/20 transition-all ${
                 currentSong.isLink
-                  ? "bg-gradient-to-tr from-orange-500 to-amber-500 text-white shadow-orange-500/20"
+                  ? "bg-gradient-to-tr from-purple-500 to-indigo-500 text-white shadow-purple-500/20"
                   : "bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-purple-600/20"
               }`}
             >
-              {currentSong.isLink ? (
-                <Cloud size={20} />
-              ) : (
-                <Disc
-                  size={24}
-                  className={isPlaying ? "animate-spin" : ""}
-                  style={{ animationDuration: "4s" }}
-                />
-              )}
+              <Disc
+                size={24}
+                className={isPlaying ? "animate-spin" : ""}
+                style={{ animationDuration: "4s" }}
+              />
             </div>
 
             <div className="truncate">
@@ -361,15 +359,7 @@ export default function GlobalMusicPlayer() {
                 {cleanTitle}
               </h4>
               <div className="flex items-center gap-1.5 mt-0.5">
-                {currentSong.isLink ? (
-                  <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/70 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1">
-                    <Cloud size={10} /> SoundCloud
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/70 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1">
-                    <Music size={10} /> Audio MP3
-                  </span>
-                )}
+                <PlatformBadge url={currentSong.publicUrl} isLink={currentSong.isLink} />
                 {isPlaying && (
                   <span className="flex h-1.5 w-1.5 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -470,8 +460,8 @@ export default function GlobalMusicPlayer() {
                 </span>
               </div>
             ) : (
-              <div className="w-full flex items-center justify-center gap-2 mt-1 text-[11px] text-orange-600 dark:text-orange-400 font-medium">
-                <span>SoundCloud Player • Tự động chuyển bài khi kết thúc hàng đợi</span>
+              <div className="w-full flex items-center justify-center gap-2 mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                <span>{detectMusicPlatform(currentSong.publicUrl).name} • Tự động chuyển bài khi kết thúc hàng đợi</span>
               </div>
             )}
           </div>
@@ -519,18 +509,18 @@ export default function GlobalMusicPlayer() {
               )}
             </button>
 
-            {/* Nút bật/tắt SoundCloud Widget */}
+            {/* Nút bật/tắt Embed Widget */}
             {currentSong.isLink && (
               <button
-                onClick={() => setShowSoundCloudWidget(!showSoundCloudWidget)}
+                onClick={() => setShowEmbedWidget(!showEmbedWidget)}
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                  showSoundCloudWidget
-                    ? "bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-300"
-                    : "text-slate-400 hover:text-orange-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  showEmbedWidget
+                    ? "bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-300"
+                    : "text-slate-400 hover:text-purple-500 hover:bg-slate-100 dark:hover:bg-slate-800"
                 }`}
-                title={showSoundCloudWidget ? "Ẩn khung SoundCloud" : "Hiện khung SoundCloud"}
+                title={showEmbedWidget ? "Ẩn khung phát nhạc nhúng" : "Hiện khung phát nhạc nhúng"}
               >
-                <Cloud size={17} />
+                <Disc size={17} />
               </button>
             )}
 
@@ -554,35 +544,13 @@ export default function GlobalMusicPlayer() {
           </div>
         </div>
 
-        {/* Khung widget SoundCloud tích hợp khi có link */}
-        {currentSong.isLink && showSoundCloudWidget && (
-          <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 animate-in fade-in slide-in-from-top-1">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1.5 px-1">
-              <span className="flex items-center gap-1 font-semibold text-orange-600 dark:text-orange-400">
-                <Cloud size={12} /> SoundCloud Player
-              </span>
-              <a
-                href={currentSong.publicUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 hover:underline text-slate-500 dark:text-slate-300"
-              >
-                Mở trang gốc <ExternalLink size={10} />
-              </a>
-            </div>
-            <div className="rounded-xl overflow-hidden bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-              <iframe
-                width="100%"
-                height="100"
-                scrolling="no"
-                frameBorder="no"
-                allow="autoplay"
-                src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(
-                  currentSong.publicUrl
-                )}&color=%23ff5500&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false`}
-              />
-            </div>
-          </div>
+        {/* Khung widget nhúng đa nền tảng (YouTube, Spotify, SoundCloud, Zing MP3, Apple Music) */}
+        {currentSong.isLink && (
+          <MusicEmbedWidget
+            song={currentSong}
+            isOpen={showEmbedWidget}
+            onToggle={() => setShowEmbedWidget(!showEmbedWidget)}
+          />
         )}
       </div>
     </div>

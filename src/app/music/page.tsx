@@ -9,14 +9,16 @@ import {
   Music as MusicIcon,
   Disc,
   Link as LinkIcon,
-  Cloud,
   SkipBack,
   SkipForward,
   Headphones,
+  ExternalLink,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { getSongs, getUploadUrl, addRecord, deleteRecord } from "@/app/actions/data";
 import { useMusic, SongItem } from "@/context/MusicContext";
+import { detectMusicPlatform } from "@/lib/musicPlatforms";
+import { PlatformBadge } from "@/components/music/PlatformBadge";
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -43,7 +45,7 @@ export default function MusicPage() {
   const [uploading, setUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(() => getStoredSongs().length === 0);
 
-  // Trạng thái cho form thêm SoundCloud
+  // Trạng thái cho form thêm link nhạc
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkTitle, setLinkTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
@@ -62,6 +64,8 @@ export default function MusicPage() {
     closePlayer,
     setPlaylist,
   } = useMusic();
+
+  const heroPlatform = currentSong?.isLink ? detectMusicPlatform(currentSong.publicUrl) : null;
 
   const fetchSongs = async () => {
     try {
@@ -157,10 +161,12 @@ export default function MusicPage() {
       finalUrl = "https://" + finalUrl;
     }
 
-    const loadingToast = toast.loading("Đang lưu đường dẫn nhạc...");
+    const loadingToast = toast.loading("Đang nhận diện & lưu đường dẫn nhạc...");
     try {
+      const platformInfo = detectMusicPlatform(finalUrl);
+      const defaultTitle = `${platformInfo.name} Track`;
+      const baseTitle = linkTitle.trim() || defaultTitle;
       let aiGenre = "";
-      const baseTitle = linkTitle.trim() || "SoundCloud Track";
       try {
         toast.loading("AI đang phân tích thể loại...", { id: loadingToast });
         const { guessMusicGenre } = await import("@/app/actions/ai");
@@ -180,7 +186,9 @@ export default function MusicPage() {
       });
 
       toast.success(
-        aiGenre ? `Đã lưu! Thể loại: ${aiGenre}` : "Đã thêm nhạc ngoài thành công!",
+        aiGenre
+          ? `Đã lưu [${platformInfo.name}]! Thể loại: ${aiGenre}`
+          : `Đã thêm nhạc từ ${platformInfo.name}!`,
         { id: loadingToast }
       );
       setLinkTitle("");
@@ -247,7 +255,7 @@ export default function MusicPage() {
             onClick={() => setIsAddingLink(!isAddingLink)}
             className="bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 cursor-pointer shadow-xs"
           >
-            <Cloud size={17} className="text-orange-500" /> Thêm SoundCloud
+            <LinkIcon size={17} className="text-purple-600 dark:text-purple-400" /> Thêm link nhạc
           </button>
 
           <label className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md shadow-purple-600/20 hover:shadow-purple-600/30 cursor-pointer flex items-center gap-2">
@@ -271,32 +279,46 @@ export default function MusicPage() {
         </div>
       </div>
 
-      {/* Form thêm SoundCloud */}
+      {/* Form thêm link nhạc đa nền tảng */}
       {isAddingLink && (
-        <div className="bg-orange-50/70 dark:bg-orange-950/30 border border-orange-200/80 dark:border-orange-900/60 p-4 rounded-2xl mb-8 flex flex-col sm:flex-row gap-3 items-center shadow-xs animate-in fade-in slide-in-from-top-2">
-          <div className="w-10 h-10 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-orange-500 shrink-0 shadow-xs border border-orange-100 dark:border-orange-900/50">
-            <Cloud size={20} />
+        <div className="bg-purple-50/60 dark:bg-slate-800/80 border border-purple-200/70 dark:border-slate-700 p-4 rounded-2xl mb-8 flex flex-col gap-3 shadow-xs animate-in fade-in slide-in-from-top-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-purple-100 dark:border-slate-700/60">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-purple-100 dark:bg-purple-950/60 rounded-lg flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                <LinkIcon size={15} />
+              </div>
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Hỗ trợ: YouTube, Spotify, SoundCloud, Zing MP3, Apple Music, link MP3 trực tiếp
+              </span>
+            </div>
+            {linkUrl.trim() && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-slate-400">Nền tảng:</span>
+                <PlatformBadge url={linkUrl.trim()} isLink={true} />
+              </div>
+            )}
           </div>
-          <form onSubmit={handleAddLink} className="flex-1 flex flex-col sm:flex-row gap-3 w-full">
+
+          <form onSubmit={handleAddLink} className="flex flex-col sm:flex-row gap-3 w-full">
             <input
               type="text"
-              placeholder="Tên bài hát / Tiêu đề (Tùy chọn)"
+              placeholder="Tên bài hát / Tiêu đề (Tùy chọn - tự sinh theo nguồn)"
               value={linkTitle}
               onChange={(e) => setLinkTitle(e.target.value)}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-400 text-sm font-medium"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-purple-400 text-sm font-medium"
             />
             <input
               type="text"
-              placeholder="Dán link SoundCloud (https://soundcloud.com/...)"
+              placeholder="Dán link bài hát (YouTube, Spotify, SoundCloud, Zing MP3, Apple Music, MP3...)"
               required
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
-              className="flex-[2] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-orange-400 text-sm font-medium"
+              className="flex-[2] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-purple-400 text-sm font-medium"
             />
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               <button
                 type="submit"
-                className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-xs cursor-pointer"
+                className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-xs cursor-pointer"
               >
                 Lưu
               </button>
@@ -338,7 +360,7 @@ export default function MusicPage() {
               </div>
             ) : songs.length === 0 ? (
               <li className="p-10 text-center text-slate-400 dark:text-slate-500 font-medium text-sm">
-                Chưa có bài hát nào! Hãy tải lên file MP3 hoặc dán link SoundCloud để thưởng thức.
+                Chưa có bài hát nào! Hãy tải lên file MP3 hoặc dán link nhạc (YouTube, Spotify, SoundCloud, Zing MP3...) để thưởng thức.
               </li>
             ) : (
               songs.map((song, idx) => {
@@ -357,16 +379,12 @@ export default function MusicPage() {
                       <div
                         className={`w-11 h-11 flex-shrink-0 rounded-2xl flex items-center justify-center font-bold text-xs transition-all ${
                           isCurrent
-                            ? song.isLink
-                              ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
-                              : "bg-purple-600 text-white shadow-md shadow-purple-600/20"
+                            ? "bg-purple-600 text-white shadow-md shadow-purple-600/20"
                             : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-white dark:group-hover:bg-slate-700 shadow-2xs"
                         }`}
                       >
-                        {isCurrent && isPlaying && !song.isLink ? (
+                        {isCurrent && isPlaying ? (
                           <Disc size={20} className="animate-spin" style={{ animationDuration: "3s" }} />
-                        ) : song.isLink ? (
-                          <Cloud size={18} />
                         ) : (
                           idx + 1
                         )}
@@ -376,17 +394,20 @@ export default function MusicPage() {
                         <h4
                           className={`font-bold truncate text-sm md:text-base leading-snug ${
                             isCurrent
-                              ? song.isLink
-                                ? "text-orange-600 dark:text-orange-400"
-                                : "text-purple-600 dark:text-purple-400"
+                              ? "text-purple-600 dark:text-purple-400"
                               : "text-slate-800 dark:text-slate-200"
                           }`}
                         >
                           {song.title.replace(/\.[^/.]+$/, "")}
                         </h4>
-                        <p className="text-xs font-medium text-slate-400 mt-0.5">
-                          {song.isLink ? "SoundCloud Track" : "Audio Track • MP3"}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <PlatformBadge url={song.publicUrl} isLink={song.isLink} />
+                          {song.created_at && (
+                            <span className="text-[11px] text-slate-400">
+                              {new Date(song.created_at).toLocaleDateString("vi-VN")}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -398,8 +419,8 @@ export default function MusicPage() {
                       )}
 
                       {song.isLink && !isCurrent && (
-                        <span className="text-orange-500 w-8 h-8 flex items-center justify-center opacity-60">
-                          <LinkIcon size={15} />
+                        <span className="text-slate-400 w-8 h-8 flex items-center justify-center opacity-60">
+                          <LinkIcon size={14} />
                         </span>
                       )}
 
@@ -422,8 +443,18 @@ export default function MusicPage() {
         <div className="bg-slate-900 rounded-3xl shadow-xl overflow-hidden text-white flex flex-col h-fit md:sticky md:top-6 border border-slate-800">
           <div
             className={`h-48 flex flex-col items-center justify-center relative overflow-hidden transition-all duration-500 ${
-              currentSong?.isLink
-                ? "bg-gradient-to-tr from-orange-600 to-amber-500"
+              heroPlatform
+                ? heroPlatform.type === "youtube"
+                  ? "bg-gradient-to-tr from-red-600 to-rose-500"
+                  : heroPlatform.type === "spotify"
+                  ? "bg-gradient-to-tr from-emerald-600 to-teal-500"
+                  : heroPlatform.type === "soundcloud"
+                  ? "bg-gradient-to-tr from-orange-600 to-amber-500"
+                  : heroPlatform.type === "applemusic"
+                  ? "bg-gradient-to-tr from-rose-600 to-pink-500"
+                  : heroPlatform.type === "zingmp3"
+                  ? "bg-gradient-to-tr from-purple-700 to-indigo-600"
+                  : "bg-gradient-to-tr from-slate-700 to-slate-800"
                 : "bg-gradient-to-br from-purple-700 via-indigo-600 to-blue-700"
             }`}
           >
@@ -432,31 +463,23 @@ export default function MusicPage() {
                 isPlaying ? "opacity-0" : "opacity-100"
               }`}
             />
-            {currentSong?.isLink ? (
-              <Cloud size={80} className="text-white/80 drop-shadow-xl" />
-            ) : (
-              <Disc
-                size={84}
-                className={`text-white/80 drop-shadow-2xl ${
-                  isPlaying ? "animate-spin" : ""
-                }`}
-                style={{ animationDuration: "4s" }}
-              />
-            )}
+            <Disc
+              size={84}
+              className={`text-white/80 drop-shadow-2xl ${
+                isPlaying ? "animate-spin" : ""
+              }`}
+              style={{ animationDuration: "4s" }}
+            />
           </div>
 
           <div className="p-6 md:p-8 flex flex-col items-center text-center">
             <h3 className="font-extrabold text-lg md:text-xl mb-1 truncate w-full leading-tight">
               {currentSong ? currentSong.title.replace(/\.[^/.]+$/, "") : "Chưa chọn bài"}
             </h3>
-            <p
-              className={`text-xs mb-5 font-bold uppercase tracking-wider ${
-                currentSong?.isLink ? "text-orange-300" : "text-purple-300"
-              }`}
-            >
+            <p className="text-xs mb-5 font-bold uppercase tracking-wider text-purple-300">
               {currentSong
-                ? currentSong.isLink
-                  ? "SoundCloud Track"
+                ? heroPlatform
+                  ? `${heroPlatform.name} Track`
                   : isPlaying
                   ? "Đang phát liên tục"
                   : "Tạm dừng"
@@ -465,19 +488,76 @@ export default function MusicPage() {
 
             {currentSong ? (
               currentSong.isLink ? (
-                // Nếu là SoundCloud, nhúng iframe player
-                <div className="w-full rounded-2xl overflow-hidden bg-white mt-2 border border-slate-700 shadow-inner">
-                  <iframe
-                    width="100%"
-                    height="166"
-                    scrolling="no"
-                    frameBorder="no"
-                    allow="autoplay"
-                    src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(
-                      currentSong.publicUrl
-                    )}&color=%23ff5500&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false`}
-                  />
-                </div>
+                // Nếu là link ngoài: Nhúng iframe player tương ứng với nền tảng
+                heroPlatform?.embedUrl ? (
+                  <div className="w-full rounded-2xl overflow-hidden bg-slate-950 mt-2 border border-slate-700 shadow-inner">
+                    {heroPlatform.type === "youtube" && (
+                      <iframe
+                        width="100%"
+                        height="180"
+                        src={heroPlatform.embedUrl}
+                        title="YouTube player"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full border-none"
+                      />
+                    )}
+                    {heroPlatform.type === "spotify" && (
+                      <iframe
+                        src={heroPlatform.embedUrl}
+                        width="100%"
+                        height="152"
+                        frameBorder="0"
+                        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                        loading="lazy"
+                        className="w-full border-none"
+                      />
+                    )}
+                    {heroPlatform.type === "soundcloud" && (
+                      <iframe
+                        width="100%"
+                        height="166"
+                        scrolling="no"
+                        frameBorder="no"
+                        allow="autoplay"
+                        src={heroPlatform.embedUrl}
+                        className="w-full border-none"
+                      />
+                    )}
+                    {heroPlatform.type === "applemusic" && (
+                      <iframe
+                        allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                        frameBorder="0"
+                        height="175"
+                        style={{ width: "100%", overflow: "hidden", borderRadius: "12px" }}
+                        src={heroPlatform.embedUrl}
+                        className="w-full border-none"
+                      />
+                    )}
+                    {heroPlatform.type === "zingmp3" && (
+                      <iframe
+                        src={heroPlatform.embedUrl}
+                        width="100%"
+                        height="120"
+                        frameBorder="0"
+                        allowFullScreen
+                        className="w-full border-none"
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-full p-4 rounded-2xl bg-slate-800/80 text-center text-xs text-slate-300 mt-2 border border-slate-700">
+                    <p className="font-semibold mb-2">{heroPlatform?.name || "Nguồn ngoài"}</p>
+                    <a
+                      href={currentSong.publicUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold text-xs hover:bg-purple-700"
+                    >
+                      Mở nghe trực tiếp <ExternalLink size={12} />
+                    </a>
+                  </div>
+                )
               ) : (
                 // Nếu là file Audio thường: Trình phát đồng bộ với Global Player
                 <div className="w-full flex flex-col items-center gap-4 mt-2">
