@@ -15,12 +15,13 @@ export interface ChatMessage {
   text: string;
 }
 
-// Danh sách các mô hình Gemini ưu tiên: Bắt đầu với gemini-2.5-flash theo yêu cầu
+// Danh sách các mô hình Gemini ưu tiên: Bắt đầu với gemini-3.8-flash thế hệ mới nhất
 const PREFERRED_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
   'gemini-3.5-flash',
-  'gemini-1.5-flash'
+  'gemini-3.5-flash-lite',
+  'gemini-2.5-flash'
 ];
 
 function getAIClient() {

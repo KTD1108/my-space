@@ -11,11 +11,13 @@ function getAIClient() {
   return new GoogleGenAI({ apiKey });
 }
 
-// Danh sách mô hình ưu tiên: bắt đầu với mô hình tốc độ cao và ổn định nhất, có fallback tự động
+// Danh sách mô hình ưu tiên: bắt đầu với mô hình thế hệ mới nhất gemini-3.8-flash, có fallback tự động
 const PREFERRED_MODELS = [
-  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
   'gemini-3.5-flash',
-  'gemini-3.8-flash'
+  'gemini-3.5-flash-lite',
+  'gemini-2.5-flash'
 ];
 
 interface AIGenerateOptions {
