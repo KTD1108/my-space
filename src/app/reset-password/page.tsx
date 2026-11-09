@@ -58,14 +58,64 @@ export default function ResetPasswordPage() {
     let isMounted = true;
     const supabase = createClient();
 
-    async function checkAuthSession() {
+    async function initializeSession() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (isMounted) {
-          if (session) {
-            setHasValidSession(true);
+        // 1. Kiểm tra query parameters (PKCE code hoặc OTP token_hash)
+        if (typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const code = params.get("code");
+          const tokenHash = params.get("token_hash");
+          const type = params.get("type") as any;
+
+          if (code) {
+            try {
+              const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+              if (!error && data?.session && isMounted) {
+                setHasValidSession(true);
+                setVerifyingSession(false);
+                return;
+              }
+            } catch (err) {
+              console.warn("[ResetPassword] Code exchange error:", err);
+            }
           }
+
+          if (tokenHash && type) {
+            try {
+              const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+              if (!error && data?.session && isMounted) {
+                setHasValidSession(true);
+                setVerifyingSession(false);
+                return;
+              }
+            } catch (err) {
+              console.warn("[ResetPassword] verifyOtp error:", err);
+            }
+          }
+        }
+
+        // 2. Kiểm tra session hiện có (từ cookie hoặc session storage)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && isMounted) {
+          setHasValidSession(true);
           setVerifyingSession(false);
+          return;
+        }
+
+        // 3. Nếu có hash fragment (#access_token=... hoặc #type=recovery), chờ onAuthStateChange xử lý
+        const hasHashRecovery = typeof window !== "undefined" && 
+          (window.location.hash.includes("access_token") || window.location.hash.includes("type=recovery"));
+
+        if (!hasHashRecovery && isMounted) {
+          setVerifyingSession(false);
+        } else {
+          // Cho phép tối đa 3 giây để Supabase SDK parse xong hash fragment
+          const timer = setTimeout(() => {
+            if (isMounted) {
+              setVerifyingSession(false);
+            }
+          }, 3000);
+          return () => clearTimeout(timer);
         }
       } catch (err) {
         console.error("[ResetPassword] Error verifying session:", err);
@@ -75,12 +125,12 @@ export default function ResetPasswordPage() {
       }
     }
 
-    checkAuthSession();
+    initializeSession();
 
-    // Lắng nghe sự kiện PASSWORD_RECOVERY từ Supabase (nếu có hash fragment)
+    // 4. Lắng nghe sự kiện auth từ Supabase (PASSWORD_RECOVERY hoặc SIGNED_IN)
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
-      if (event === "PASSWORD_RECOVERY" || session) {
+      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session) || session) {
         setHasValidSession(true);
         setVerifyingSession(false);
       }

@@ -27,6 +27,7 @@ import FocusStudyHub from "@/components/FocusStudyHub";
 import AIChatDrawer from "@/components/AIChatDrawer";
 import { MusicProvider } from "@/context/MusicContext";
 import GlobalMusicPlayer from "@/components/GlobalMusicPlayer";
+import { createClient } from "@/utils/supabase/client";
 
 function getStoredProfile() {
   if (typeof window === 'undefined') return null;
@@ -73,6 +74,35 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const isAuthRoute = pathname === "/login" || pathname === "/reset-password" || pathname.startsWith("/login/");
   const hasLoadedProfileRef = useRef(false);
+
+  // Tự động phát hiện và chuyển hướng liên kết Đặt lại mật khẩu (nếu bị Supabase fallback về trang chủ)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash || "";
+      const search = window.location.search || "";
+      if (
+        hash.includes("type=recovery") || 
+        search.includes("type=recovery") ||
+        search.includes("next=%2Freset-password") || 
+        search.includes("next=/reset-password")
+      ) {
+        window.location.replace(`/reset-password${search}${hash}`);
+        return;
+      }
+    }
+
+    try {
+      const supabase = createClient();
+      const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+        if (event === "PASSWORD_RECOVERY") {
+          window.location.replace("/reset-password");
+        }
+      });
+      return () => {
+        authListener?.subscription.unsubscribe();
+      };
+    } catch {}
+  }, []);
 
   useEffect(() => {
     // 1. Khôi phục Profile ngay lập tức từ cache (0ms)

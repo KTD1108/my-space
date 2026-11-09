@@ -1,9 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
+import { createServerClient } from '@supabase/ssr'
+import type { EmailOtpType } from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
+  const token_hash = requestUrl.searchParams.get('token_hash')
+  const type = requestUrl.searchParams.get('type') as EmailOtpType | null
   const next = requestUrl.searchParams.get('next') ?? '/reset-password'
   const error = requestUrl.searchParams.get('error')
   const errorDescription = requestUrl.searchParams.get('error_description')
@@ -19,32 +22,62 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  // Chuẩn bị URL chuyển hướng kế tiếp
+  const redirectTarget = new URL(next, origin)
+  const response = NextResponse.redirect(redirectTarget)
+
+  // Gắn trực tiếp cookies vào response để đảm bảo cookie phiên được gửi về trình duyệt
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
+
+  // 1. Xử lý PKCE flow (code)
   if (code) {
     try {
-      const supabase = await createClient()
       const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-
-      if (exchangeError) {
-        console.error('[Auth Callback] exchangeCodeForSession failed:', exchangeError.message)
-        return NextResponse.redirect(
-          new URL(
-            `/login?error=${encodeURIComponent('Liên kết xác thực đã hết hạn hoặc không hợp lệ. Vui lòng thử lại.')}`,
-            origin
-          )
-        )
+      if (!exchangeError) {
+        return response
       }
-
-      // Đổi code thành công -> chuyển tiếp tới trang tiếp theo (mặc định: /reset-password)
-      return NextResponse.redirect(new URL(next, origin))
+      console.error('[Auth Callback] exchangeCodeForSession failed:', exchangeError.message)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error('[Auth Callback] Unexpected error during code exchange:', msg)
-      return NextResponse.redirect(
-        new URL(`/login?error=${encodeURIComponent('Có lỗi xảy ra trong quá trình xác thực.')}`, origin)
-      )
+      console.error('[Auth Callback] exchangeCodeForSession exception:', err)
     }
   }
 
-  // Không có code trong URL callback
-  return NextResponse.redirect(new URL('/login', origin))
+  // 2. Xử lý OTP / token_hash flow
+  if (token_hash && type) {
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash,
+        type,
+      })
+      if (!verifyError) {
+        return response
+      }
+      console.error('[Auth Callback] verifyOtp failed:', verifyError.message)
+    } catch (err) {
+      console.error('[Auth Callback] verifyOtp exception:', err)
+    }
+  }
+
+  // Nếu không có code/token_hash hoặc đổi session thất bại
+  return NextResponse.redirect(
+    new URL(
+      `/login?error=${encodeURIComponent('Liên kết xác thực đã hết hạn hoặc không hợp lệ. Vui lòng thử lại.')}`,
+      origin
+    )
+  )
 }

@@ -60,6 +60,22 @@ export default function LoginPage() {
   const [emailValue, setEmailValue] = useState("");
   const router = useRouter();
 
+  // Tự động chuyển hướng sang /reset-password nếu URL mang token khôi phục
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash || "";
+      const search = window.location.search || "";
+      if (
+        hash.includes("type=recovery") || 
+        search.includes("type=recovery") ||
+        search.includes("next=%2Freset-password") || 
+        search.includes("next=/reset-password")
+      ) {
+        window.location.replace(`/reset-password${search}${hash}`);
+      }
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
