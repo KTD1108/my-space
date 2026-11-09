@@ -7,6 +7,7 @@ interface DailyVocabHeaderProps {
   currentDate: string;
   onDateChange: (newDate: string) => void;
   topic: string;
+  modelUsed?: string;
   streakCount: number;
   masteredCount: number;
   totalWords: number;
@@ -20,6 +21,7 @@ export function DailyVocabHeader({
   currentDate,
   onDateChange,
   topic,
+  modelUsed,
   streakCount,
   masteredCount,
   totalWords,
@@ -142,17 +144,26 @@ export function DailyVocabHeader({
         </div>
       </div>
 
-      {/* Topic tag */}
-      {topic && (
-        <div className="flex items-center gap-2 pt-1 text-xs">
-          <span className="font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-[10px]">
-            Chủ đề hôm nay:
-          </span>
-          <span className="font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
-            {topic}
-          </span>
-        </div>
-      )}
+      {/* Topic tag & Active AI Model badge */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+        {topic && (
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-[10px]">
+              Chủ đề hôm nay:
+            </span>
+            <span className="font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
+              {topic}
+            </span>
+          </div>
+        )}
+
+        {modelUsed && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-900/50 font-mono text-[11px] font-semibold">
+            <Sparkles size={12} className="text-amber-500" />
+            <span>AI: {modelUsed.replace('models/', '')}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

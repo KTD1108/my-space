@@ -32,6 +32,7 @@ export interface DailyVocabSet {
   topic: string;
   words: ToeicWord[];
   generatedAt: string;
+  modelUsed?: string;
   quiz?: ToeicQuizQuestion[];
 }
 

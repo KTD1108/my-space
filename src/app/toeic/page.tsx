@@ -191,6 +191,7 @@ export default function ToeicDailyPage() {
         currentDate={currentDate}
         onDateChange={setCurrentDate}
         topic={vocabSet?.topic || ''}
+        modelUsed={vocabSet?.modelUsed}
         streakCount={progress.streakCount}
         masteredCount={masteredInCurrentSet}
         totalWords={vocabSet?.words.length || 0}

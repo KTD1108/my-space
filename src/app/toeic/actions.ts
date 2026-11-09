@@ -18,7 +18,7 @@ function getAIClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
-async function callGeminiSafe(prompt: string, timeoutMs = 8000): Promise<string> {
+async function callGeminiSafe(prompt: string, timeoutMs = 8000): Promise<{ text: string; model: string }> {
   const ai = getAIClient();
   let lastError: Error | null = null;
 
@@ -38,7 +38,9 @@ async function callGeminiSafe(prompt: string, timeoutMs = 8000): Promise<string>
 
       const response = await Promise.race([apiPromise, timeoutPromise]);
       const text = response?.text?.trim();
-      if (text) return text;
+      if (text) {
+        return { text, model };
+      }
     } catch (err: unknown) {
       lastError = err as Error;
       // Fallback ngay lập tức sang model dự phòng tiếp theo
@@ -121,8 +123,8 @@ TRẢ VỀ ĐÚNG ĐỊNH DẠNG JSON THEO CẤU TRÚC SAU (không trả về ma
   ]
 }`;
 
-    const text = await callGeminiSafe(prompt, 7000);
-    const cleaned = cleanJsonText(text);
+    const res = await callGeminiSafe(prompt, 7000);
+    const cleaned = cleanJsonText(res.text);
     const parsed = JSON.parse(cleaned);
 
     const words: ToeicWord[] = (parsed.words || []).map((item: Partial<ToeicWord>, index: number) => ({
@@ -147,7 +149,8 @@ TRẢ VỀ ĐÚNG ĐỊNH DẠNG JSON THEO CẤU TRÚC SAU (không trả về ma
       dateStr,
       topic: parsed.topic || chosenTopic,
       words,
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
+      modelUsed: res.model
     };
 
     return { success: true, data };
@@ -191,8 +194,8 @@ TRẢ VỀ ĐÚNG JSON MẢNG:
   }
 ]`;
 
-    const text = await callGeminiSafe(prompt, 7000);
-    const cleaned = cleanJsonText(text);
+    const res = await callGeminiSafe(prompt, 7000);
+    const cleaned = cleanJsonText(res.text);
     const quiz: ToeicQuizQuestion[] = JSON.parse(cleaned);
 
     return { success: true, quiz };

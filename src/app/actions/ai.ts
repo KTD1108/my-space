@@ -16,8 +16,7 @@ const PREFERRED_MODELS = [
   'gemini-3.8-flash',
   'gemini-3.7-flash',
   'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-2.5-flash'
+  'gemini-3.5-flash-lite'
 ];
 
 interface AIGenerateOptions {
@@ -26,52 +25,43 @@ interface AIGenerateOptions {
   timeoutMs?: number;
 }
 
+export interface GeminiCallResult {
+  text: string;
+  model: string;
+}
+
 // Helper thực thi gọi AI an toàn: Có Timeout guard, Model Fallback và Retry tự động
-async function callGeminiSafe(options: AIGenerateOptions): Promise<string> {
+async function callGeminiSafe(options: AIGenerateOptions): Promise<GeminiCallResult> {
   const ai = getAIClient();
-  const timeoutMs = options.timeoutMs || 15000;
+  const timeoutMs = options.timeoutMs || 8000;
   let lastError: Error | null = null;
 
   for (const model of PREFERRED_MODELS) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Timeout (${timeoutMs}ms) khi gọi model ${model}`)), timeoutMs)
-        );
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout (${timeoutMs}ms) khi gọi model ${model}`)), timeoutMs)
+      );
 
-        const config: Record<string, unknown> = {};
-        if (options.isJson) {
-          config.responseMimeType = "application/json";
-        }
-
-        const apiPromise = ai.models.generateContent({
-          model,
-          contents: options.contents,
-          config: Object.keys(config).length > 0 ? config : undefined
-        });
-
-        const response = await Promise.race([apiPromise, timeoutPromise]);
-        const text = response?.text?.trim();
-        if (text) return text;
-      } catch (err: unknown) {
-        lastError = err as Error;
-        const errMsg = (err as Error)?.message || '';
-        const status = (err as { status?: number })?.status;
-
-        // Nếu model không tồn tại (404), chuyển ngay sang model tiếp theo
-        if (status === 404 || errMsg.includes('not found') || errMsg.includes('no longer available')) {
-          break;
-        }
-
-        // Nếu quá tải (503) hoặc rate limit (429), chờ backoff rồi thử lại
-        if (status === 503 || status === 429 || errMsg.includes('demand')) {
-          await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
-          continue;
-        }
-
-        // Lỗi khác: thử model dự phòng tiếp theo
-        break;
+      const config: Record<string, unknown> = {};
+      if (options.isJson) {
+        config.responseMimeType = "application/json";
       }
+
+      const apiPromise = ai.models.generateContent({
+        model,
+        contents: options.contents,
+        config: Object.keys(config).length > 0 ? config : undefined
+      });
+
+      const response = await Promise.race([apiPromise, timeoutPromise]);
+      const text = response?.text?.trim();
+      if (text) {
+        return { text, model };
+      }
+    } catch (err: unknown) {
+      lastError = err as Error;
+      // Fallback ngay lập tức sang model dự phòng tiếp theo
+      continue;
     }
   }
 
@@ -130,8 +120,8 @@ async function extractDocText(docType: string, docUrl: string): Promise<string> 
 export async function guessMusicGenre(songTitle: string) {
   try {
     const prompt = `Bạn là một chuyên gia âm nhạc. Dựa vào tên bài hát hoặc liên kết "${songTitle}", hãy đoán thể loại nhạc của nó (Ví dụ: Pop, EDM, Lofi, Ballad, Rap...). Trả về ĐÚNG 1 TỪ HOẶC CỤM TỪ NGẮN NHẤT mô tả thể loại, tuyệt đối không giải thích thêm.`;
-    const text = await callGeminiSafe({ contents: prompt, timeoutMs: 8000 });
-    return { success: true, data: text.replace(/[\[\]"']/g, '') }; 
+    const res = await callGeminiSafe({ contents: prompt, timeoutMs: 8000 });
+    return { success: true, data: res.text.replace(/[\[\]"']/g, '') }; 
   } catch (error: unknown) {
     return { success: false, error: (error as Error).message };
   }
@@ -140,8 +130,8 @@ export async function guessMusicGenre(songTitle: string) {
 export async function categorizeDoc(docTitle: string) {
   try {
     const prompt = `Dựa vào tên tài liệu hoặc liên kết URL sau: "${docTitle}", hãy phân loại nó thuộc chủ đề gì (Ví dụ: Lập trình, Toán học, Giải trí, Kinh tế, Ngoại ngữ, Khác...). Trả về đúng 1 cụm từ ngắn gọn làm tên Danh mục, tuyệt đối không giải thích.`;
-    const text = await callGeminiSafe({ contents: prompt, timeoutMs: 8000 });
-    return { success: true, data: text.replace(/[\[\]"']/g, '') };
+    const res = await callGeminiSafe({ contents: prompt, timeoutMs: 8000 });
+    return { success: true, data: res.text.replace(/[\[\]"']/g, '') };
   } catch (error: unknown) {
     return { success: false, error: (error as Error).message };
   }
@@ -158,7 +148,8 @@ Yêu cầu:
 Tài liệu:
 ${content}`;
     
-    const summary = await callGeminiSafe({ contents: prompt, timeoutMs: 15000 });
+    const res = await callGeminiSafe({ contents: prompt, timeoutMs: 15000 });
+    const summary = res.text;
     const supabase = await createClient();
     await supabase.from('documents').update({ ai_summary: summary }).eq('id', docId);
 
@@ -194,8 +185,8 @@ ${question}
 
 Hãy trả lời trực tiếp, mạch lạc và trình bày đẹp mắt:`;
 
-    const answer = await callGeminiSafe({ contents: prompt, timeoutMs: 15000 });
-    return { success: true, answer };
+    const res = await callGeminiSafe({ contents: prompt, timeoutMs: 15000 });
+    return { success: true, answer: res.text };
   } catch (error: unknown) {
     return { success: false, error: (error as Error).message };
   }
@@ -233,8 +224,8 @@ Mẫu JSON:
 Nội dung tài liệu:
 ${content}`;
 
-    const text = await callGeminiSafe({ contents: prompt, isJson: true, timeoutMs: 18000 });
-    let raw = text.trim();
+    const res = await callGeminiSafe({ contents: prompt, isJson: true, timeoutMs: 18000 });
+    let raw = res.text.trim();
     if (raw.startsWith('```')) {
       raw = raw.replace(/^```[a-z]*\n/, '').replace(/\n```$/, '').trim();
     }
@@ -268,8 +259,8 @@ Trả về ĐÚNG định dạng JSON mảng:
 Tài liệu:
 ${content}`;
 
-    const text = await callGeminiSafe({ contents: prompt, isJson: true, timeoutMs: 18000 });
-    let raw = text.trim();
+    const res = await callGeminiSafe({ contents: prompt, isJson: true, timeoutMs: 18000 });
+    let raw = res.text.trim();
     if (raw.startsWith('```')) {
       raw = raw.replace(/^```[a-z]*\n/, '').replace(/\n```$/, '').trim();
     }
@@ -285,12 +276,13 @@ ${content}`;
 export interface AIChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  model?: string;
 }
 
 export async function askGeneralAI(
   prompt: string,
   history: AIChatMessage[] = []
-): Promise<{ success: boolean; data?: string; error?: string }> {
+): Promise<{ success: boolean; data?: string; model?: string; error?: string }> {
   try {
     const cleanPrompt = prompt?.trim();
     if (!cleanPrompt) {
@@ -305,7 +297,7 @@ export async function askGeneralAI(
       : 'Chưa có lịch sử trước đó.';
 
     const systemPrompt = `Bạn là Trợ lý AI Toàn năng của nền tảng "My Space" — không gian học tập, làm việc và quản lý cá nhân thông minh.
-Mô hình vận hành: Gemini 3.5 Flash Lite tốc độ phản hồi cực nhanh và hoàn toàn miễn phí.
+Mô hình vận hành: Google Gemini thế hệ mới nhất (ưu tiên Gemini 3.8 Flash), tốc độ phản hồi cực nhanh và hoàn toàn miễn phí.
 
 Nhiệm vụ cốt lõi của bạn:
 1. Giải đáp mọi thắc mắc học tập và nghiên cứu (Toán, Lý, Hóa, Sinh, Tin học, Lập trình, Ngoại ngữ, Kinh tế, Văn học, Lịch sử...).
@@ -322,12 +314,12 @@ ${cleanPrompt}
 
 Hãy trả lời trực tiếp, đầy đủ, súc tích và mạch lạc:`;
 
-    const answer = await callGeminiSafe({
+    const res = await callGeminiSafe({
       contents: systemPrompt,
-      timeoutMs: 20000
+      timeoutMs: 15000
     });
 
-    return { success: true, data: answer };
+    return { success: true, data: res.text, model: res.model };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Đã xảy ra lỗi khi trao đổi với Trợ lý AI.";
     console.error("[askGeneralAI Error]:", message);

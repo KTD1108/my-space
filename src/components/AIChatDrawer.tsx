@@ -113,7 +113,11 @@ export default function AIChatDrawer() {
     try {
       const res = await askGeneralAI(text, messages);
       if (res.success && res.data) {
-        const assistantMessage: AIChatMessage = { role: "assistant", content: res.data };
+        const assistantMessage: AIChatMessage = { 
+          role: "assistant", 
+          content: res.data,
+          model: res.model 
+        };
         setMessages([...updatedMessages, assistantMessage]);
       } else {
         toast.error(res.error || "Không nhận được phản hồi từ AI.");
@@ -174,7 +178,7 @@ export default function AIChatDrawer() {
               : "bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 shadow-blue-500/30 hover:shadow-indigo-500/40 hover:scale-105"
           }`}
           aria-label="Trợ lý AI My Space"
-          title="Mở Trợ lý AI My Space (Gemini Flash Lite)"
+          title="Mở Trợ lý AI My Space (Gemini 3.8 Flash)"
         >
           <div className="relative flex items-center justify-center">
             {isOpen ? (
@@ -208,8 +212,9 @@ export default function AIChatDrawer() {
                   <h3 className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
                     Trợ lý AI My Space
                   </h3>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 font-semibold shrink-0">
-                    Flash Lite
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-gradient-to-r from-blue-500/15 to-indigo-500/15 text-blue-700 dark:text-blue-300 border border-blue-300/40 dark:border-blue-700/40 font-semibold shrink-0 flex items-center gap-1">
+                    <Sparkles size={10} className="text-amber-500" />
+                    Gemini 3.8
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -301,10 +306,16 @@ export default function AIChatDrawer() {
                       </div>
 
                       {!isUser && (
-                        <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          {msg.model ? (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono flex items-center gap-1">
+                              <Sparkles size={10} className="text-amber-500" />
+                              <span>{msg.model.replace('models/', '')}</span>
+                            </span>
+                          ) : <span />}
                           <button
                             onClick={() => handleCopyText(msg.content, idx)}
-                            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-[11px] flex items-center gap-1 rounded-md transition-colors"
+                            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-[11px] flex items-center gap-1 rounded-md transition-colors opacity-0 group-hover:opacity-100"
                             title="Sao chép câu trả lời"
                           >
                             {copiedIndex === idx ? (
