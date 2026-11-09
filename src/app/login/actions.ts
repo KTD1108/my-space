@@ -49,6 +49,22 @@ function translateAuthError(errorMessage: string): string {
   return errorMessage || 'Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.';
 }
 
+async function getAuthRedirectUrl(path: string): Promise<string> {
+  const defaultOrigin = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.myspacecloud.id.vn';
+  try {
+    const headersList = await headers();
+    const host = headersList.get('x-forwarded-host') || headersList.get('host');
+    if (host) {
+      if (host.includes('localhost') || host.includes('127.0.0.1')) {
+        return `http://${host}${path}`;
+      }
+      const proto = headersList.get('x-forwarded-proto') || 'https';
+      return `${proto}://${host}${path}`;
+    }
+  } catch {}
+  return `${defaultOrigin.replace(/\/$/, '')}${path}`;
+}
+
 export async function login(formData: FormData): Promise<AuthActionResult> {
   const email = (formData.get('email') as string)?.trim() ?? '';
   const password = formData.get('password') as string;
@@ -83,19 +99,7 @@ export async function signup(formData: FormData): Promise<AuthActionResult> {
     return { success: false, error: `Mật khẩu phải chứa ít nhất ${MIN_PASSWORD_LENGTH} ký tự.` };
   }
 
-  let emailRedirectTo = 'https://my-space-tiendat2.vercel.app/auth/callback?next=/';
-  try {
-    const headersList = await headers();
-    const host = headersList.get('x-forwarded-host') || headersList.get('host');
-    if (host) {
-      if (host.includes('localhost') || host.includes('127.0.0.1')) {
-        emailRedirectTo = `http://${host}/auth/callback?next=/`;
-      } else {
-        const proto = headersList.get('x-forwarded-proto') || 'https';
-        emailRedirectTo = `${proto}://${host}/auth/callback?next=/`;
-      }
-    }
-  } catch {}
+  const emailRedirectTo = await getAuthRedirectUrl('/auth/callback?next=/');
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -132,19 +136,7 @@ export async function resetPassword(email: string): Promise<AuthActionResult> {
   }
 
   try {
-    let redirectTo = 'https://my-space-tiendat2.vercel.app/auth/callback?next=/reset-password';
-    try {
-      const headersList = await headers();
-      const host = headersList.get('x-forwarded-host') || headersList.get('host');
-      if (host) {
-        if (host.includes('localhost') || host.includes('127.0.0.1')) {
-          redirectTo = `http://${host}/auth/callback?next=/reset-password`;
-        } else {
-          const proto = headersList.get('x-forwarded-proto') || 'https';
-          redirectTo = `${proto}://${host}/auth/callback?next=/reset-password`;
-        }
-      }
-    } catch {}
+    const redirectTo = await getAuthRedirectUrl('/auth/callback?next=/reset-password');
 
     const supabase = await createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
