@@ -48,10 +48,10 @@ export default function AIChatDrawer() {
     isMusicActive = false;
   }
 
-  // Khôi phục lịch sử chat từ sessionStorage khi tải trang
+  // Khôi phục lịch sử chat từ localStorage khi tải trang
   useEffect(() => {
     try {
-      const saved = sessionStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -63,11 +63,11 @@ export default function AIChatDrawer() {
     }
   }, []);
 
-  // Lưu lịch sử chat vào sessionStorage mỗi khi có tin nhắn mới
+  // Lưu lịch sử chat vào localStorage mỗi khi có tin nhắn mới
   useEffect(() => {
     try {
       if (messages.length > 0) {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
       }
     } catch (e) {
       console.warn("Không thể lưu lịch sử trò chuyện:", e);
@@ -146,7 +146,7 @@ export default function AIChatDrawer() {
     if (messages.length === 0) return;
     if (confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử trò chuyện hiện tại?")) {
       setMessages([]);
-      sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEY);
       toast.success("Đã làm mới cuộc hội thoại!");
     }
   };

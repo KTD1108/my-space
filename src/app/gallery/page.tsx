@@ -30,14 +30,14 @@ import {
   movePhotosBulk
 } from "@/app/actions/data";
 
-const PHOTOS_CACHE_KEY = 'myspace_photos_cache_v1';
-const ALBUMS_CACHE_KEY = 'myspace_albums_cache_v1';
+const PHOTOS_CACHE_KEY = 'myspace_photos_cache_v2';
+const ALBUMS_CACHE_KEY = 'myspace_albums_cache_v2';
 
 export default function GalleryPage() {
   const [photos, setPhotos] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const raw = sessionStorage.getItem(PHOTOS_CACHE_KEY);
+        const raw = localStorage.getItem(PHOTOS_CACHE_KEY);
         if (raw) return JSON.parse(raw);
       } catch {}
     }
@@ -46,7 +46,7 @@ export default function GalleryPage() {
   const [albums, setAlbums] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const raw = sessionStorage.getItem(ALBUMS_CACHE_KEY);
+        const raw = localStorage.getItem(ALBUMS_CACHE_KEY);
         if (raw) return JSON.parse(raw);
       } catch {}
     }
@@ -72,7 +72,7 @@ export default function GalleryPage() {
 
   const [isLoading, setIsLoading] = useState(() => {
     if (typeof window !== 'undefined') {
-      return !sessionStorage.getItem(PHOTOS_CACHE_KEY);
+      return !localStorage.getItem(PHOTOS_CACHE_KEY);
     }
     return true;
   });
@@ -99,7 +99,7 @@ export default function GalleryPage() {
       const data = await getPhotos();
       setPhotos(data || []);
       try {
-        sessionStorage.setItem(PHOTOS_CACHE_KEY, JSON.stringify(data || []));
+        localStorage.setItem(PHOTOS_CACHE_KEY, JSON.stringify(data || []));
       } catch {}
     } catch (e: any) {
       toast.error(e.message);
@@ -113,7 +113,7 @@ export default function GalleryPage() {
       const data = await getAlbums();
       setAlbums(data || []);
       try {
-        sessionStorage.setItem(ALBUMS_CACHE_KEY, JSON.stringify(data || []));
+        localStorage.setItem(ALBUMS_CACHE_KEY, JSON.stringify(data || []));
       } catch {}
     } catch (e: any) {
       toast.error(e.message);

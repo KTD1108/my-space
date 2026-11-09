@@ -17,14 +17,14 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-const CACHE_KEY = 'myspace_dashboard_cache_v2';
+const CACHE_KEY = 'myspace_dashboard_cache_v3';
 
 export default function Home() {
-  // Lấy dữ liệu đệm từ sessionStorage (nếu có) để vẽ màn hình TỨC THÌ trong 0ms không đợi server
+  // Lấy dữ liệu đệm từ localStorage (nếu có) để vẽ màn hình TỨC THÌ trong 0ms kể cả khi mở tab mới hoặc tắt trình duyệt
   const [cachedData] = useState<HomeDashboardData | null>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const raw = sessionStorage.getItem(CACHE_KEY);
+        const raw = localStorage.getItem(CACHE_KEY);
         if (raw) return JSON.parse(raw);
       } catch {}
     }
@@ -91,9 +91,9 @@ export default function Home() {
         };
         setFocusStats(consolidatedFocus);
 
-        // Lưu vào cache cho lần truy cập tiếp theo hiển thị ngay lập tức (0ms)
+        // Lưu vào localStorage v3 cho lần truy cập tiếp theo hiển thị ngay lập tức (0ms)
         try {
-          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
             ...data,
             focusStats: consolidatedFocus
           }));
@@ -118,21 +118,6 @@ export default function Home() {
     window.addEventListener('focus-session-completed', handleFocusCompleted);
     return () => window.removeEventListener('focus-session-completed', handleFocusCompleted);
   }, []);
-
-  if (loading) {
-    return (
-      <div className="w-full space-y-6 animate-pulse">
-        <div className="h-10 bg-slate-200/70 dark:bg-slate-800 rounded-xl w-64"></div>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5 auto-rows-[170px]">
-          <div className="col-span-1 md:col-span-2 row-span-2 bg-slate-200/60 dark:bg-slate-800 rounded-2xl"></div>
-          <div className="col-span-1 row-span-2 bg-slate-200/60 dark:bg-slate-800 rounded-2xl"></div>
-          <div className="col-span-1 bg-slate-200/60 dark:bg-slate-800 rounded-2xl"></div>
-          <div className="col-span-1 bg-slate-200/60 dark:bg-slate-800 rounded-2xl"></div>
-          <div className="col-span-1 md:col-span-3 lg:col-span-4 bg-slate-200/60 dark:bg-slate-800 rounded-2xl h-36"></div>
-        </div>
-      </div>
-    );
-  }
 
   const currentDateFormatted = new Date().toLocaleDateString('vi-VN', {
     weekday: 'long',
@@ -163,8 +148,8 @@ export default function Home() {
           </button>
 
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/40">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></span>
-            Không gian hoạt động
+            <span className={`w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400 ${loading ? 'animate-ping' : ''}`}></span>
+            {loading && !cachedData ? 'Đang kết nối...' : 'Không gian hoạt động'}
           </span>
         </div>
       </div>
@@ -252,7 +237,12 @@ export default function Home() {
           </div>
           
           <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-            {todaySchedules.length === 0 ? (
+            {loading && !cachedData ? (
+              <div className="space-y-2 animate-pulse py-1">
+                <div className="h-11 bg-slate-100 dark:bg-slate-800/80 rounded-lg"></div>
+                <div className="h-11 bg-slate-100 dark:bg-slate-800/80 rounded-lg"></div>
+              </div>
+            ) : todaySchedules.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-4">
                 <CheckCircle2 size={24} className="text-slate-300 dark:text-slate-600 mb-2" />
                 <p className="text-slate-400 font-medium text-xs">Không có lịch hẹn hôm nay</p>
@@ -282,7 +272,11 @@ export default function Home() {
             <ArrowUpRight size={16} className="text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors" />
           </div>
           <div>
-            <span className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{stats.songs}</span>
+            {loading && !cachedData ? (
+              <div className="h-7 w-12 bg-slate-100 dark:bg-slate-800 rounded animate-pulse my-1"></div>
+            ) : (
+              <span className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{stats.songs}</span>
+            )}
             <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">Bài hát lưu trữ</p>
           </div>
         </Link>
@@ -299,7 +293,11 @@ export default function Home() {
             <ArrowUpRight size={16} className="text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors" />
           </div>
           <div>
-            <span className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{stats.docs}</span>
+            {loading && !cachedData ? (
+              <div className="h-7 w-12 bg-slate-100 dark:bg-slate-800 rounded animate-pulse my-1"></div>
+            ) : (
+              <span className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{stats.docs}</span>
+            )}
             <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-0.5">Tài liệu & Bài giảng</p>
           </div>
         </Link>
@@ -323,7 +321,7 @@ export default function Home() {
             <div>
               <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">Thư viện Kỷ niệm</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                {stats.photos} bức ảnh và album đã lưu giữ
+                {loading && !cachedData ? 'Đang chuẩn bị kỷ niệm...' : `${stats.photos} bức ảnh và album đã lưu giữ`}
               </p>
             </div>
           </div>

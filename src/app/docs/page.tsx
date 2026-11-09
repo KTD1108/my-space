@@ -54,14 +54,14 @@ interface CategoryItem {
   created_at?: string;
 }
 
-const DOCS_CACHE_KEY = 'myspace_docs_cache_v1';
-const CATEGORIES_CACHE_KEY = 'myspace_categories_cache_v1';
+const DOCS_CACHE_KEY = 'myspace_docs_cache_v2';
+const CATEGORIES_CACHE_KEY = 'myspace_categories_cache_v2';
 
 export default function DocsPage() {
   const [docs, setDocs] = useState<DocItem[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const raw = sessionStorage.getItem(DOCS_CACHE_KEY);
+        const raw = localStorage.getItem(DOCS_CACHE_KEY);
         if (raw) return JSON.parse(raw);
       } catch {}
     }
@@ -70,7 +70,7 @@ export default function DocsPage() {
   const [categories, setCategories] = useState<CategoryItem[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const raw = sessionStorage.getItem(CATEGORIES_CACHE_KEY);
+        const raw = localStorage.getItem(CATEGORIES_CACHE_KEY);
         if (raw) return JSON.parse(raw);
       } catch {}
     }
@@ -115,7 +115,7 @@ export default function DocsPage() {
 
   const [isLoading, setIsLoading] = useState(() => {
     if (typeof window !== 'undefined') {
-      return !sessionStorage.getItem(DOCS_CACHE_KEY);
+      return !localStorage.getItem(DOCS_CACHE_KEY);
     }
     return true;
   });
@@ -151,7 +151,7 @@ export default function DocsPage() {
       const data = await getDocs();
       setDocs(data || []);
       try {
-        sessionStorage.setItem(DOCS_CACHE_KEY, JSON.stringify(data || []));
+        localStorage.setItem(DOCS_CACHE_KEY, JSON.stringify(data || []));
       } catch {}
     } catch (e: any) {
       toast.error(e.message);
@@ -165,7 +165,7 @@ export default function DocsPage() {
       const data = await getCategories();
       setCategories(data || []);
       try {
-        sessionStorage.setItem(CATEGORIES_CACHE_KEY, JSON.stringify(data || []));
+        localStorage.setItem(CATEGORIES_CACHE_KEY, JSON.stringify(data || []));
       } catch {}
     } catch (e: any) {
       toast.error(e.message);

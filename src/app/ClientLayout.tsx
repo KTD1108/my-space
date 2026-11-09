@@ -35,7 +35,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [profile, setProfile] = useState<{name: string, avatar?: string | null, email?: string} | null>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const raw = sessionStorage.getItem('myspace_profile_cache_v1');
+        const raw = localStorage.getItem('myspace_profile_cache_v2');
         if (raw) return JSON.parse(raw);
       } catch {}
     }
@@ -78,7 +78,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         if (data && isMounted) {
           setProfile(data);
           try {
-            sessionStorage.setItem('myspace_profile_cache_v1', JSON.stringify(data));
+            localStorage.setItem('myspace_profile_cache_v2', JSON.stringify(data));
           } catch {}
         }
       } catch (e) {

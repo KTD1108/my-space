@@ -539,21 +539,35 @@ export interface HomeDashboardData {
 }
 
 export async function getHomeDashboardData(): Promise<HomeDashboardData> {
-  const user = await getUser();
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      stats: { docs: 0, songs: 0, photos: 0 },
+      profile: null,
+      todaySchedules: [],
+      recentPhoto: null,
+      focusStats: { totalMinutes: 0, sessionsCount: 0 }
+    };
+  }
 
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  now.setHours(0, 0, 0, 0);
 
-  // Chạy song song 6 truy vấn trên 1 kết nối duy nhất ở server
+  // Kích hoạt giải mã Avatar song song ngay từ đầu cùng với các truy vấn DB
+  const avatarPromise = user.user_metadata?.avatar_url
+    ? getCachedSignedUrl(user.user_metadata.avatar_url, 60 * 60 * 24 * 7)
+    : Promise.resolve(null);
+
+  // Chạy song song tất cả các truy vấn trên 1 kết nối duy nhất ở server
   const [
     docsCountRes,
     songsCountRes,
     photosCountRes,
     todaySchedulesRes,
     recentPhotoRes,
-    todayFocusRes
+    avatarUrl
   ] = await Promise.all([
     supabase.from('documents').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
     supabase.from('songs').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
@@ -571,26 +585,13 @@ export async function getHomeDashboardData(): Promise<HomeDashboardData> {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from('focus_sessions')
-      .select('duration_minutes')
-      .eq('user_id', user.id)
-      .gte('completed_at', now.toISOString())
+    avatarPromise
   ]);
 
-  // Xử lý signed URL ảnh đại diện & ảnh gần nhất (nếu cache hit thì 0ms)
-  const [avatarUrl, recentPhotoUrl] = await Promise.all([
-    user.user_metadata?.avatar_url
-      ? getCachedSignedUrl(user.user_metadata.avatar_url, 60 * 60 * 24 * 7)
-      : Promise.resolve(null),
-    recentPhotoRes.data?.url
-      ? getCachedSignedUrl(recentPhotoRes.data.url)
-      : Promise.resolve(null)
-  ]);
-
-  const focusMinutes = (todayFocusRes.data || []).reduce(
-    (acc, curr) => acc + (curr.duration_minutes || 0),
-    0
-  );
+  // Xử lý signed URL ảnh gần nhất (nếu cache hit thì 0ms)
+  const recentPhotoUrl = recentPhotoRes.data?.url
+    ? await getCachedSignedUrl(recentPhotoRes.data.url)
+    : null;
 
   return {
     stats: {
@@ -606,8 +607,8 @@ export async function getHomeDashboardData(): Promise<HomeDashboardData> {
     todaySchedules: todaySchedulesRes.data || [],
     recentPhoto: recentPhotoUrl,
     focusStats: {
-      totalMinutes: focusMinutes,
-      sessionsCount: todayFocusRes.data?.length || 0
+      totalMinutes: 0,
+      sessionsCount: 0
     }
   };
 }

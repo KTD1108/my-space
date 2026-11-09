@@ -25,13 +25,13 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 }
 
-const SONGS_CACHE_KEY = 'myspace_songs_cache_v1';
+const SONGS_CACHE_KEY = 'myspace_songs_cache_v2';
 
 export default function MusicPage() {
   const [songs, setSongs] = useState<SongItem[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const raw = sessionStorage.getItem(SONGS_CACHE_KEY);
+        const raw = localStorage.getItem(SONGS_CACHE_KEY);
         if (raw) return JSON.parse(raw);
       } catch {}
     }
@@ -40,7 +40,7 @@ export default function MusicPage() {
   const [uploading, setUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(() => {
     if (typeof window !== 'undefined') {
-      return !sessionStorage.getItem(SONGS_CACHE_KEY);
+      return !localStorage.getItem(SONGS_CACHE_KEY);
     }
     return true;
   });
@@ -80,7 +80,7 @@ export default function MusicPage() {
       // Đồng bộ vào playlist toàn cục nếu chưa có playlist
       setPlaylist(songItems);
       try {
-        sessionStorage.setItem(SONGS_CACHE_KEY, JSON.stringify(songItems));
+        localStorage.setItem(SONGS_CACHE_KEY, JSON.stringify(songItems));
       } catch {}
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Không thể tải danh sách bài hát";

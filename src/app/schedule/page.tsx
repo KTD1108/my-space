@@ -36,13 +36,13 @@ import {
 import { ambientAudio } from "@/lib/ambientAudio";
 import WeeklyScheduleView, { ScheduleItem, ColorScheme } from "@/components/WeeklyScheduleView";
 
-const SCHEDULES_CACHE_KEY = 'myspace_schedules_cache_v1';
+const SCHEDULES_CACHE_KEY = 'myspace_schedules_cache_v2';
 
 export default function SchedulePage() {
   const [schedules, setSchedules] = useState<ScheduleItem[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const raw = sessionStorage.getItem(SCHEDULES_CACHE_KEY);
+        const raw = localStorage.getItem(SCHEDULES_CACHE_KEY);
         if (raw) return JSON.parse(raw);
       } catch {}
     }
@@ -50,7 +50,7 @@ export default function SchedulePage() {
   });
   const [isLoading, setIsLoading] = useState(() => {
     if (typeof window !== 'undefined') {
-      return !sessionStorage.getItem(SCHEDULES_CACHE_KEY);
+      return !localStorage.getItem(SCHEDULES_CACHE_KEY);
     }
     return true;
   });
@@ -118,7 +118,7 @@ export default function SchedulePage() {
       const items = (data || []) as ScheduleItem[];
       setSchedules(items);
       try {
-        sessionStorage.setItem(SCHEDULES_CACHE_KEY, JSON.stringify(items));
+        localStorage.setItem(SCHEDULES_CACHE_KEY, JSON.stringify(items));
       } catch {}
     } catch (e: unknown) {
       const err = e as Error;
@@ -138,7 +138,7 @@ export default function SchedulePage() {
         if (!ignore) {
           setSchedules(items);
           try {
-            sessionStorage.setItem(SCHEDULES_CACHE_KEY, JSON.stringify(items));
+            localStorage.setItem(SCHEDULES_CACHE_KEY, JSON.stringify(items));
           } catch {}
         }
       } catch (e: unknown) {
