@@ -78,7 +78,7 @@ export default function GlobalMusicPlayer() {
   // Chế độ thu gọn (Mini Pill)
   if (isMinimized) {
     return (
-      <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
+      <div className="fixed bottom-16 md:bottom-4 right-3 md:right-4 z-30 animate-in fade-in slide-in-from-bottom-3 duration-200">
         <div className="flex items-center gap-3 px-3 py-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 shadow-2xl rounded-2xl max-w-[320px] sm:max-w-sm">
           <div
             onClick={() => setIsMinimized(false)}
@@ -155,7 +155,7 @@ export default function GlobalMusicPlayer() {
   }
 
   return (
-    <div className="fixed bottom-3 inset-x-3 md:inset-x-6 max-w-5xl mx-auto z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed bottom-16 md:bottom-4 inset-x-2 sm:inset-x-4 md:inset-x-6 max-w-5xl mx-auto z-30 animate-in fade-in slide-in-from-bottom-4 duration-300">
       {/* Drawer: Danh sách hàng đợi & Playlist (Queue & Playlist Hub) */}
       {showQueue && (
         <div className="mb-2 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xl rounded-2xl max-h-80 overflow-y-auto animate-in fade-in slide-in-from-bottom-2">

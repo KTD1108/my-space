@@ -179,37 +179,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <FocusStudyHub />
         <PWAInstallPrompt />
       
-      {/* Nút mở menu, theme & cài đặt app trên Mobile */}
-      <div className="md:hidden fixed top-3.5 right-4 z-50 flex items-center gap-2">
-        <button
-          onClick={() => window.dispatchEvent(new CustomEvent('open-pwa-install'))}
-          className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/80 shadow-sm border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
-          aria-label="Cài đặt App"
-          title="Tải ứng dụng vào điện thoại"
-        >
-          <Download size={16} />
-          <span className="text-xs font-bold">Tải App</span>
-        </button>
-
-        <button
-          onClick={toggleTheme}
-          className="p-2.5 rounded-xl bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 active:scale-95 transition-all cursor-pointer"
-          aria-label="Đổi giao diện sáng/tối"
-        >
-          {isDark ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-slate-600" />}
-        </button>
-
-        <button 
-          className="bg-white dark:bg-slate-900 p-2.5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 active:scale-95 transition-all cursor-pointer"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          aria-label="Mở Menu"
-        >
-          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-
       {/* Sidebar Chuẩn Studio / SaaS Cao Cấp */}
-      <aside className={`${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-40 w-64 h-full bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col transition-transform duration-200 ease-out`}>
+      <aside className={`${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-50 w-72 md:w-64 h-full bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col transition-transform duration-200 ease-out shadow-2xl md:shadow-none`}>
         
         {/* Brand Header */}
         <div className="px-6 py-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80">
@@ -317,10 +288,28 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <main className="flex-1 overflow-y-auto h-full w-full relative flex flex-col bg-slate-50/60 dark:bg-slate-950 transition-colors">
         
         {/* Top Navbar */}
-        <header className="h-16 w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 md:px-10 flex items-center justify-between sticky top-0 z-30 transition-colors">
+        <header className="h-14 sm:h-16 w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md px-3.5 sm:px-6 md:px-10 flex items-center justify-between sticky top-0 z-30 transition-colors">
           
-          {/* Nút tìm kiếm nhanh Command Palette */}
-          <div className="flex items-center gap-2.5">
+          {/* Mobile Left: Menu Toggle + Brand Logo */}
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
+              aria-label="Mở Menu"
+            >
+              {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+
+            <Link href="/" className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-slate-900 dark:bg-blue-600 text-white flex items-center justify-center font-black text-xs shadow-sm">
+                M
+              </div>
+              <span className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100">My Space</span>
+            </Link>
+          </div>
+
+          {/* Desktop Left: Nút tìm kiếm nhanh Command Palette & Focus Hub */}
+          <div className="hidden md:flex items-center gap-2.5">
             <button 
               className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100/80 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-slate-300 hover:text-slate-600 dark:hover:text-slate-200 transition-all cursor-pointer shadow-2xs"
               onClick={() => {
@@ -328,9 +317,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               }}
             >
               <Search size={14} className="text-slate-400" />
-              <span className="hidden sm:inline">Tìm kiếm nhanh hoặc lệnh...</span>
-              <span className="sm:hidden">Tìm kiếm...</span>
-              <kbd className="hidden sm:inline-flex items-center gap-0.5 font-mono text-[10px] bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600 shadow-2xs">
+              <span>Tìm kiếm nhanh hoặc lệnh...</span>
+              <kbd className="inline-flex items-center gap-0.5 font-mono text-[10px] bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-600 shadow-2xs">
                 <Command size={10} /> K
               </kbd>
             </button>
@@ -341,69 +329,174 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               title="Mở phòng học tập trung (Pomodoro & Âm thanh thư giãn)"
             >
               <Sparkles size={13} className="text-amber-500 group-hover:scale-110 transition-transform" />
-              <span className="hidden sm:inline">Phòng tập trung</span>
+              <span>Phòng tập trung</span>
             </button>
           </div>
 
-          {/* User Profile Menu */}
-          <div className="relative flex items-center gap-3">
-            <button 
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center gap-2.5 p-1 pr-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer"
+          {/* Right: Actions, Theme & User Profile Menu */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Quick Actions trên Mobile (Search & Focus Hub) */}
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+              className="md:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
+              aria-label="Tìm kiếm nhanh"
+              title="Tìm kiếm nhanh"
             >
-              <img src={avatarUrl} alt="Avatar" className="w-7 h-7 rounded-full object-cover bg-slate-100 ring-1 ring-slate-200 dark:ring-slate-700" />
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 hidden sm:block max-w-[120px] truncate">{displayName}</span>
-              <ChevronRight size={14} className={`text-slate-400 transition-transform ${isProfileOpen ? 'rotate-90' : ''}`} />
+              <Search size={18} />
             </button>
 
-            {/* Dropdown Menu */}
-            {isProfileOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
-                <div className="absolute right-0 top-11 w-60 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-800 p-1.5 z-50 animate-in fade-in slide-in-from-top-2">
-                  <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-1">
-                    <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Đang đăng nhập</p>
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{profile?.email || 'Tài khoản'}</p>
-                  </div>
-                  
-                  <Link 
-                    href="/profile" 
-                    onClick={() => setIsProfileOpen(false)}
-                    className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/80 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors"
-                  >
-                    <Settings size={15} className="text-slate-400" />
-                    Cài đặt tài khoản
-                  </Link>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('open-focus-hub'))}
+              className="md:hidden p-2 rounded-xl text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
+              aria-label="Phòng tập trung"
+              title="Phòng học tập trung"
+            >
+              <Sparkles size={18} />
+            </button>
 
-                  <button 
-                    onClick={() => {
-                      setIsProfileOpen(false);
-                      window.dispatchEvent(new CustomEvent('open-pwa-install'));
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-left"
-                  >
-                    <Download size={15} />
-                    Cài đặt ứng dụng vào máy
-                  </button>
-                  
-                  <button 
-                    onClick={() => logout()}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 rounded-xl text-xs font-medium transition-colors cursor-pointer"
-                  >
-                    <LogOut size={15} />
-                    Đăng xuất
-                  </button>
-                </div>
-              </>
-            )}
+            {/* Nút Toggle Theme */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
+              aria-label="Đổi giao diện sáng/tối"
+              title={isDark ? "Chuyển sang giao diện Sáng" : "Chuyển sang giao diện Tối"}
+            >
+              {isDark ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-slate-600" />}
+            </button>
+
+            {/* User Profile Avatar & Dropdown */}
+            <div className="relative flex items-center">
+              <button 
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-2 p-1 pr-1 sm:pr-3 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all cursor-pointer"
+                aria-label="Tài khoản cá nhân"
+              >
+                <img src={avatarUrl} alt="Avatar" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover bg-slate-100 ring-1 ring-slate-200 dark:ring-slate-700" />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 hidden sm:block max-w-[120px] truncate">{displayName}</span>
+                <ChevronRight size={14} className={`text-slate-400 hidden sm:block transition-transform ${isProfileOpen ? 'rotate-90' : ''}`} />
+              </button>
+
+              {/* Dropdown Menu */}
+              {isProfileOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
+                  <div className="absolute right-0 top-11 w-60 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200/90 dark:border-slate-800 p-1.5 z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-1">
+                      <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Đang đăng nhập</p>
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{profile?.email || 'Tài khoản'}</p>
+                    </div>
+                    
+                    <Link 
+                      href="/profile" 
+                      onClick={() => setIsProfileOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/80 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors"
+                    >
+                      <Settings size={15} className="text-slate-400" />
+                      Cài đặt tài khoản
+                    </Link>
+
+                    <button 
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        window.dispatchEvent(new CustomEvent('open-pwa-install'));
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-left"
+                    >
+                      <Download size={15} />
+                      Cài đặt ứng dụng vào máy
+                    </button>
+                    
+                    <button 
+                      onClick={() => logout()}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 rounded-xl text-xs font-medium transition-colors cursor-pointer"
+                    >
+                      <LogOut size={15} />
+                      Đăng xuất
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
 
         {/* Nội dung trang */}
-        <div className="flex-1 px-6 py-6 md:px-10 md:py-8 max-w-7xl w-full mx-auto pb-32">
+        <div className="flex-1 px-3.5 sm:px-6 md:px-10 py-4 sm:py-6 md:py-8 max-w-7xl w-full mx-auto pb-36 md:pb-24">
           {children}
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation Bar (Thanh điều hướng dưới đáy màn hình chuẩn Native App) */}
+      <nav 
+        aria-label="Điều hướng chính di động"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-around px-1 py-1 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] dark:shadow-none"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 6px)' }}
+      >
+        <Link 
+          href="/" 
+          prefetch={true}
+          className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all ${
+            pathname === '/' 
+              ? 'text-blue-600 dark:text-blue-400 font-bold scale-105' 
+              : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'
+          }`}
+        >
+          <LayoutDashboard size={20} className={pathname === '/' ? 'stroke-[2.5]' : ''} />
+          <span className="text-[10px] tracking-tight mt-0.5">Tổng quan</span>
+        </Link>
+
+        <Link 
+          href="/schedule" 
+          prefetch={true}
+          className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all ${
+            pathname === '/schedule' 
+              ? 'text-blue-600 dark:text-blue-400 font-bold scale-105' 
+              : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'
+          }`}
+        >
+          <Calendar size={20} className={pathname === '/schedule' ? 'stroke-[2.5]' : ''} />
+          <span className="text-[10px] tracking-tight mt-0.5">Lịch trình</span>
+        </Link>
+
+        <Link 
+          href="/docs" 
+          prefetch={true}
+          className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all ${
+            pathname === '/docs' 
+              ? 'text-blue-600 dark:text-blue-400 font-bold scale-105' 
+              : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'
+          }`}
+        >
+          <FileText size={20} className={pathname === '/docs' ? 'stroke-[2.5]' : ''} />
+          <span className="text-[10px] tracking-tight mt-0.5">Tài liệu</span>
+        </Link>
+
+        <Link 
+          href="/music" 
+          prefetch={true}
+          className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all ${
+            pathname === '/music' 
+              ? 'text-blue-600 dark:text-blue-400 font-bold scale-105' 
+              : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'
+          }`}
+        >
+          <Headphones size={20} className={pathname === '/music' ? 'stroke-[2.5]' : ''} />
+          <span className="text-[10px] tracking-tight mt-0.5">Giai điệu</span>
+        </Link>
+
+        <Link 
+          href="/gallery" 
+          prefetch={true}
+          className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all ${
+            pathname === '/gallery' 
+              ? 'text-blue-600 dark:text-blue-400 font-bold scale-105' 
+              : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium'
+          }`}
+        >
+          <ImageIcon size={20} className={pathname === '/gallery' ? 'stroke-[2.5]' : ''} />
+          <span className="text-[10px] tracking-tight mt-0.5">Kỷ niệm</span>
+        </Link>
+      </nav>
 
       {/* Global Music Player (Thanh phát nhạc toàn cục) */}
       <GlobalMusicPlayer />

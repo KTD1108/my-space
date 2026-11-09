@@ -128,7 +128,7 @@ export default function PWAInstallPrompt() {
   return (
     <aside 
       aria-label="Cài đặt ứng dụng My Space"
-      className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-slate-200/90 dark:border-slate-800 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4"
+      className="fixed bottom-16 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-slate-200/90 dark:border-slate-800 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4"
     >
       <div className="flex items-start gap-3">
         {/* App Icon */}

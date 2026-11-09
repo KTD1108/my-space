@@ -165,7 +165,7 @@ export default function AIChatDrawer() {
   return (
     <>
       {/* Floating Action Button (FAB) */}
-      <div className={`fixed ${isMusicActive ? "bottom-24 right-4 sm:right-6" : "bottom-6 right-6"} z-50 transition-all duration-300`}>
+      <div className={`fixed ${isMusicActive ? "bottom-36 md:bottom-24 right-3 sm:right-6" : "bottom-18 md:bottom-6 right-3 sm:right-6"} z-40 transition-all duration-300`}>
         <button
           onClick={() => setIsOpen(!isOpen)}
           className={`group relative flex items-center gap-2.5 px-4 py-3 rounded-full text-white shadow-xl transition-all duration-300 cursor-pointer active:scale-95 ${
@@ -195,7 +195,7 @@ export default function AIChatDrawer() {
 
       {/* Slide-up Chat Drawer Modal */}
       {isOpen && (
-        <div className={`fixed ${isMusicActive ? "bottom-38 right-4 sm:right-6" : "bottom-20 right-4 sm:right-6"} z-50 w-[92vw] sm:w-[420px] md:w-[460px] h-[78vh] max-h-[630px] rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200`}>
+        <div className={`fixed ${isMusicActive ? "bottom-48 md:bottom-38 right-2 sm:right-6" : "bottom-32 md:bottom-20 right-2 sm:right-6"} z-50 w-[calc(100vw-1rem)] sm:w-[420px] md:w-[460px] h-[75vh] max-h-[630px] rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-200`}>
           
           {/* Header */}
           <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-800/40 flex items-center justify-between shrink-0">
