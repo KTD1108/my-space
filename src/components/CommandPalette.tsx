@@ -17,7 +17,8 @@ import {
   Sparkles,
   Bot,
   LayoutDashboard,
-  Layers
+  Layers,
+  GraduationCap
 } from "lucide-react";
 import { getCommandSearchData } from "@/app/actions/data";
 import { logout } from "@/app/login/actions";
@@ -190,6 +191,14 @@ export default function CommandPalette() {
           category: "Điều hướng & Tác vụ",
           icon: <FileText size={16} className="text-emerald-500" />,
           onSelect: () => { router.push("/docs"); setIsOpen(false); }
+        },
+        {
+          id: "nav-toeic",
+          title: "Từ vựng TOEIC Hàng ngày (AI)",
+          subtitle: "Bộ từ vựng theo ngày, phát âm chuẩn Mỹ, Flashcard 3D & Mini-Quiz",
+          category: "Điều hướng & Tác vụ",
+          icon: <GraduationCap size={16} className="text-blue-500" />,
+          onSelect: () => { router.push("/toeic"); setIsOpen(false); }
         },
         {
           id: "nav-music",

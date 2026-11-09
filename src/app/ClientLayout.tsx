@@ -18,7 +18,8 @@ import {
   ChevronRight,
   Sun,
   Moon,
-  Download
+  Download,
+  GraduationCap
 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 import { logout } from "./login/actions";
@@ -148,6 +149,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       group: "Kho tri thức & Media",
       items: [
         { name: "Tài liệu & Học tập", href: "/docs", icon: <FileText size={18} />, shortcut: "G D" },
+        { name: "Từ vựng TOEIC", href: "/toeic", icon: <GraduationCap size={18} />, shortcut: "G T" },
         { name: "Giai điệu tập trung", href: "/music", icon: <Headphones size={18} />, shortcut: "G M" },
         { name: "Thư viện Kỷ niệm", href: "/gallery", icon: <ImageIcon size={18} />, shortcut: "G G" },
       ]
