@@ -25,6 +25,7 @@ import { getProfileData } from "@/app/actions/data";
 import CommandPalette from "@/components/CommandPalette";
 import FocusStudyHub from "@/components/FocusStudyHub";
 import AIChatDrawer from "@/components/AIChatDrawer";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { MusicProvider } from "@/context/MusicContext";
 import GlobalMusicPlayer from "@/components/GlobalMusicPlayer";
 import { createClient } from "@/utils/supabase/client";
@@ -175,6 +176,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <Toaster position="top-center" toastOptions={{ className: 'rounded-xl shadow-lg font-medium text-sm border border-slate-200/80 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100' }} />
         <CommandPalette />
         <FocusStudyHub />
+        <PWAInstallPrompt />
       
       {/* Nút mở menu & theme trên Mobile */}
       <div className="md:hidden fixed top-3.5 right-4 z-50 flex items-center gap-2">

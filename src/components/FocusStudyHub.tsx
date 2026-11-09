@@ -21,8 +21,21 @@ import {
 import toast from "react-hot-toast";
 import { ambientAudio } from "@/lib/ambientAudio";
 import { saveFocusSession } from "@/app/actions/data";
+import { useMusic, SongItem } from "@/context/MusicContext";
 
 type PomodoroMode = "focus" | "shortBreak" | "longBreak";
+
+function getStoredSongs(): SongItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw =
+      localStorage.getItem("myspace_songs_cache_v2") ||
+      localStorage.getItem("myspace_songs_cache_v1") ||
+      sessionStorage.getItem("myspace_songs_cache_v1");
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
 
 const MODE_TIMES: Record<PomodoroMode, number> = {
   focus: 25 * 60,
@@ -31,6 +44,7 @@ const MODE_TIMES: Record<PomodoroMode, number> = {
 };
 
 export default function FocusStudyHub() {
+  const music = useMusic();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -42,6 +56,7 @@ export default function FocusStudyHub() {
   const [isRunning, setIsRunning] = useState(false);
   const [sessionGoal, setSessionGoal] = useState("");
   const [goalCompleted, setGoalCompleted] = useState(false);
+  const [autoPlayMusic, setAutoPlayMusic] = useState(true);
 
   // AMBIENT SOUNDS STATE
   const [soundStates, setSoundStates] = useState<{
@@ -107,6 +122,67 @@ export default function FocusStudyHub() {
     }
   };
 
+  // Tự động fade-in nhạc lo-fi nhẹ nhàng khi bắt đầu học
+  const handleStartFocusMusic = async () => {
+    try {
+      // 1. Nếu đang có bài hát trong player
+      if (music.currentSong) {
+        if (!music.isPlaying) {
+          music.setVolume(0);
+          music.togglePlay();
+          await music.fadeVolume(0.5, 2000);
+        } else {
+          await music.fadeVolume(0.5, 1200);
+        }
+        return;
+      }
+
+      // 2. Tìm bài nhạc lofi/chill/study trong danh sách bài hát hoặc cache
+      const availableSongs = music.playlist.length > 0 ? music.playlist : getStoredSongs();
+      const lofiCandidate =
+        availableSongs.find(
+          (s) =>
+            /lofi|lo-fi|chill|study|focus|ambient|peaceful|relax/i.test(s.title || "") ||
+            /lofi|lo-fi|chill|study|focus/i.test(s.album || "")
+        ) || availableSongs[0];
+
+      if (lofiCandidate) {
+        music.setVolume(0);
+        music.playSong(lofiCandidate, availableSongs);
+        await music.fadeVolume(0.5, 2500);
+      } else {
+        // Fallback: luồng nhạc lofi ambient thư giãn cho phòng học
+        const defaultLofi: SongItem = {
+          id: "smart-focus-lofi",
+          title: "Chill Lofi Study Beats - Focus Flow",
+          publicUrl: "https://actions.google.com/sounds/v1/ambient/relaxing_waves.ogg",
+          album: "Smart Focus Lo-Fi",
+          isLink: false,
+        };
+        music.setVolume(0);
+        music.playSong(defaultLofi, [defaultLofi]);
+        await music.fadeVolume(0.5, 2000);
+      }
+    } catch (err) {
+      console.warn("[FocusStudyHub] Tự động fade-in nhạc lo-fi:", err);
+    }
+  };
+
+  const handleToggleTimer = async () => {
+    if (!isRunning) {
+      setIsRunning(true);
+      if (mode === "focus" && autoPlayMusic) {
+        await handleStartFocusMusic();
+        toast.success("🎶 Đang fade-in nhạc Lo-fi tập trung...", {
+          id: "lofi-focus-fade",
+          duration: 3000,
+        });
+      }
+    } else {
+      setIsRunning(false);
+    }
+  };
+
   // Lắng nghe sự kiện mở Focus Hub toàn cục
   useEffect(() => {
     const handleOpen = () => {
@@ -129,9 +205,24 @@ export default function FocusStudyHub() {
             // Hết giờ
             clearInterval(timer!);
             setIsRunning(false);
-            ambientAudio.playChime();
 
             if (mode === "focus") {
+              // Khi hết giờ (chuyển sang giờ nghỉ Giải lao):
+              // Nhạc tự động fade-out giảm âm lượng dần và phát chuông báo hoàn thành phiên tập trung
+              if (music.isPlaying) {
+                music
+                  .fadeVolume(0, 1800)
+                  .then(() => {
+                    music.togglePlay();
+                  })
+                  .catch((err) => {
+                    console.warn("[FocusStudyHub] Lỗi fade-out nhạc:", err);
+                  });
+              }
+
+              // Phát chuông báo hoàn thành phiên tập trung
+              ambientAudio.playChime();
+
               const completedMins = customMinutesRef.current;
               const completedGoal = sessionGoalRef.current;
               handleSessionCompleted(completedMins, completedGoal);
@@ -142,6 +233,7 @@ export default function FocusStudyHub() {
               setTotalDuration(5 * 60);
               return 5 * 60;
             } else {
+              ambientAudio.playChime();
               toast.success("⏰ Hết giờ nghỉ! Sẵn sàng quay lại phiên tập trung tiếp theo.", { duration: 6000 });
               setMode("focus");
               setCustomMinutes(25);
@@ -157,7 +249,7 @@ export default function FocusStudyHub() {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isRunning, mode]);
+  }, [isRunning, mode, music]);
 
   // Điều khiển âm thanh môi trường
   const toggleSound = (key: 'rain' | 'waves' | 'fireplace' | 'focus') => {
@@ -275,9 +367,9 @@ export default function FocusStudyHub() {
 
         <div className="flex items-center gap-1">
           <button 
-            onClick={() => setIsRunning(!isRunning)} 
-            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-            title={isRunning ? "Tạm dừng" : "Tiếp tục"}
+            onClick={handleToggleTimer} 
+            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
+            title={isRunning ? "Tạm dừng" : "Bắt đầu"}
           >
             {isRunning ? <Pause size={14} /> : <Play size={14} />}
           </button>
@@ -457,26 +549,56 @@ export default function FocusStudyHub() {
               {/* Nút điều khiển Timer */}
               <div className="flex items-center gap-3 mt-6 z-10">
                 <button
-                  onClick={() => setIsRunning(!isRunning)}
-                  className={`px-8 py-3.5 rounded-2xl font-bold text-sm flex items-center gap-2.5 transition-all shadow-lg active:scale-95 ${
+                  onClick={handleToggleTimer}
+                  className={`px-8 py-3.5 rounded-2xl font-bold text-sm flex items-center gap-2.5 transition-all shadow-lg active:scale-95 cursor-pointer ${
                     isRunning 
                       ? "bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/20" 
                       : "bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30"
                   }`}
                 >
-                  {isRunning ? <><Pause size={18} /> Tạm dừng</> : <><Play size={18} /> Bắt đầu ngay</>}
+                  {isRunning ? (
+                    <>
+                      <Pause size={18} /> Tạm dừng
+                    </>
+                  ) : (
+                    <>
+                      <Play size={18} /> {mode === "focus" ? "Bắt đầu học" : "Bắt đầu nghỉ"}
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => {
                     setIsRunning(false);
                     setTimeLeft(totalDuration);
                   }}
-                  className="p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
+                  className="p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700 cursor-pointer"
                   title="Đặt lại thời gian"
                 >
                   <RotateCcw size={18} />
                 </button>
               </div>
+            </div>
+
+            {/* Smart Focus Flow & Auto Lo-Fi Control */}
+            <div className="px-4 py-2.5 bg-slate-800/40 rounded-2xl border border-slate-800 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 truncate">
+                <Headphones size={15} className="text-purple-400 shrink-0" />
+                <span className="font-semibold text-slate-300 shrink-0">Smart Focus Flow:</span>
+                <span className="text-slate-400 truncate">
+                  {music.currentSong
+                    ? `Đang liên kết: ${music.currentSong.title.replace(/\.[^/.]+$/, "")}`
+                    : "Tự động fade-in nhạc Lo-fi khi bấm Bắt đầu học"}
+                </span>
+              </div>
+              <label className="flex items-center gap-1.5 shrink-0 cursor-pointer text-[11px] text-purple-300 font-semibold bg-purple-950/40 px-2 py-1 rounded-lg border border-purple-800/50 hover:bg-purple-950/60 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={autoPlayMusic}
+                  onChange={(e) => setAutoPlayMusic(e.target.checked)}
+                  className="rounded accent-purple-600 cursor-pointer"
+                />
+                <span>Auto Lo-Fi</span>
+              </label>
             </div>
 
             {/* Mục tiêu phiên học (Session Goal) */}

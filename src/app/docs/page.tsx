@@ -18,7 +18,9 @@ import {
   Eye,
   Copy,
   Check,
-  Loader2
+  Loader2,
+  MessageSquare,
+  Layers
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { 
@@ -36,6 +38,8 @@ import {
 } from "@/app/actions/data";
 import { categorizeDoc, askGeneralAI } from "@/app/actions/ai";
 import DocAIStudioModal from "@/components/DocAIStudioModal";
+import DocQAModal from "./components/DocQAModal";
+import DocFlashcardsModal from "./components/DocFlashcardsModal";
 
 interface DocItem {
   id: string;
@@ -114,9 +118,27 @@ export default function DocsPage() {
   const [selectedDocForAI, setSelectedDocForAI] = useState<DocItem | null>(null);
   const [isAIStudioOpen, setIsAIStudioOpen] = useState(false);
 
+  // Trạng thái Phân hệ AI Doc Intelligence: Hỏi đáp trực tiếp (Doc Q&A)
+  const [qaDoc, setQaDoc] = useState<DocItem | null>(null);
+  const [isQAModalOpen, setIsQAModalOpen] = useState(false);
+
+  // Trạng thái Phân hệ AI Doc Intelligence: Bộ thẻ ghi nhớ Flashcards
+  const [flashcardDoc, setFlashcardDoc] = useState<DocItem | null>(null);
+  const [isFlashcardModalOpen, setIsFlashcardModalOpen] = useState(false);
+
   const handleOpenAIStudio = (doc: DocItem) => {
     setSelectedDocForAI(doc);
     setIsAIStudioOpen(true);
+  };
+
+  const handleOpenQA = (doc: DocItem) => {
+    setQaDoc(doc);
+    setIsQAModalOpen(true);
+  };
+
+  const handleOpenFlashcards = (doc: DocItem) => {
+    setFlashcardDoc(doc);
+    setIsFlashcardModalOpen(true);
   };
 
   const [isLoading, setIsLoading] = useState(() => getStoredDocs().length === 0);
@@ -851,7 +873,21 @@ Dùng tiếng Việt súc tích, các gạch đầu dòng rõ ràng.`;
                             <Eye size={18} />
                           </button>
                         )}
-                        <button onClick={() => handleOpenAIStudio(doc)} className="p-2 text-blue-600 hover:bg-blue-100 bg-blue-50 dark:bg-blue-950/50 dark:text-blue-400 rounded-xl transition-colors cursor-pointer" title="Trợ lý Học tập AI (Tóm tắt, Hỏi đáp, Trắc nghiệm)">
+                        <button 
+                          onClick={() => handleOpenQA(doc)} 
+                          className="p-2 text-blue-600 hover:bg-blue-100 bg-blue-50 dark:bg-blue-950/50 dark:text-blue-400 rounded-xl transition-colors cursor-pointer" 
+                          title="Hỏi đáp AI (Doc Q&A)"
+                        >
+                          <MessageSquare size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleOpenFlashcards(doc)} 
+                          className="p-2 text-amber-600 hover:bg-amber-100 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400 rounded-xl transition-colors cursor-pointer" 
+                          title="Tạo Flashcards Ôn thi"
+                        >
+                          <Layers size={18} />
+                        </button>
+                        <button onClick={() => handleOpenAIStudio(doc)} className="p-2 text-indigo-600 hover:bg-indigo-100 bg-indigo-50 dark:bg-indigo-950/50 dark:text-indigo-400 rounded-xl transition-colors cursor-pointer" title="Trợ lý Học tập AI Studio">
                           <Sparkles size={18} />
                         </button>
                         <a href={doc.publicUrl} target="_blank" rel="noopener noreferrer" className="p-2 text-slate-600 hover:bg-slate-100 bg-slate-50 dark:bg-slate-800 dark:text-slate-300 rounded-xl transition-colors" title="Xem/Truy cập">
@@ -932,12 +968,36 @@ Dùng tiếng Việt súc tích, các gạch đầu dòng rõ ràng.`;
                   onClick={() => {
                     const doc = viewingNote;
                     setViewingNote(null);
-                    handleOpenAIStudio(doc);
+                    if (doc) handleOpenQA(doc);
+                  }}
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Hỏi đáp AI trực tiếp trên ghi chú này"
+                >
+                  <MessageSquare size={14} />
+                  <span>Hỏi đáp AI</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const doc = viewingNote;
+                    setViewingNote(null);
+                    if (doc) handleOpenFlashcards(doc);
+                  }}
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Tạo bộ thẻ ôn thi Flashcards"
+                >
+                  <Layers size={14} />
+                  <span>Flashcards</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const doc = viewingNote;
+                    setViewingNote(null);
+                    if (doc) handleOpenAIStudio(doc);
                   }}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all flex items-center gap-1.5 shadow-sm shadow-blue-600/20 cursor-pointer"
                 >
                   <Sparkles size={14} />
-                  <span>Trợ lý AI Studio</span>
+                  <span>AI Studio</span>
                 </button>
                 <button
                   onClick={() => setViewingNote(null)}
@@ -957,6 +1017,20 @@ Dùng tiếng Việt súc tích, các gạch đầu dòng rõ ràng.`;
         onClose={() => setIsAIStudioOpen(false)}
         doc={selectedDocForAI}
         onSummaryUpdated={fetchDocs}
+      />
+
+      {/* Phân hệ 1: Modal Hỏi đáp AI Chuyên sâu (Doc Q&A) */}
+      <DocQAModal
+        isOpen={isQAModalOpen}
+        onClose={() => setIsQAModalOpen(false)}
+        doc={qaDoc}
+      />
+
+      {/* Phân hệ 1: Modal Bộ thẻ ghi nhớ Flashcards 3D Flip */}
+      <DocFlashcardsModal
+        isOpen={isFlashcardModalOpen}
+        onClose={() => setIsFlashcardModalOpen(false)}
+        doc={flashcardDoc}
       />
     </div>
   );

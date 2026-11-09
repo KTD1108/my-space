@@ -13,7 +13,8 @@ import {
   FolderInput, 
   Share2,
   CheckSquare,
-  Check
+  Check,
+  Sparkles
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { 
@@ -29,9 +30,20 @@ import {
   deletePhotosBulk,
   movePhotosBulk
 } from "@/app/actions/data";
+import { compressImageToWebP, formatBytes } from "@/utils/imageCompressor";
+import { analyzePhotoAI, type PhotoAIAnalysisResult } from "./actions";
+import AIPhotoModal from "./components/AIPhotoModal";
 
 const PHOTOS_CACHE_KEY = 'myspace_photos_cache_v2';
 const ALBUMS_CACHE_KEY = 'myspace_albums_cache_v2';
+
+const PRESET_CATEGORIES = [
+  { name: 'Tất cả', icon: '🌟' },
+  { name: 'Kỷ niệm', icon: '✨' },
+  { name: 'Chuyến đi', icon: '✈️' },
+  { name: 'Học tập & Công việc', icon: '💼' },
+  { name: 'Gia đình', icon: '🏡' },
+];
 
 function getStoredPhotos(): any[] {
   if (typeof window === 'undefined') return [];
@@ -61,20 +73,33 @@ export default function GalleryPage() {
   const [uploading, setUploading] = useState(false);
   
   const [activeAlbum, setActiveAlbum] = useState('Tất cả');
-  const [uploadAlbum, setUploadAlbum] = useState('Chung');
+  const [uploadAlbum, setUploadAlbum] = useState('Kỷ niệm');
   
   const [isAddingAlbum, setIsAddingAlbum] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
   
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [movingPhoto, setMovingPhoto] = useState<any | null>(null);
-  const [targetAlbumMove, setTargetAlbumMove] = useState('Chung');
+  const [targetAlbumMove, setTargetAlbumMove] = useState('Kỷ niệm');
 
   // Chế độ Chọn nhiều ảnh (Multi-Select Mode)
   const [isMultiSelect, setIsMultiSelect] = useState(false);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [isBulkMoving, setIsBulkMoving] = useState(false);
-  const [targetBulkAlbumMove, setTargetBulkAlbumMove] = useState('Chung');
+  const [targetBulkAlbumMove, setTargetBulkAlbumMove] = useState('Kỷ niệm');
+
+  // Trạng thái Trợ lý AI Phân tích ảnh
+  const [aiModalState, setAiModalState] = useState<{
+    isOpen: boolean;
+    photo: any | null;
+    result: PhotoAIAnalysisResult | null;
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    photo: null,
+    result: null,
+    isLoading: false,
+  });
 
   const [isLoading, setIsLoading] = useState(() => getStoredPhotos().length === 0);
 
@@ -159,7 +184,7 @@ export default function GalleryPage() {
       await deleteAlbum(id, name);
       toast.success("Đã xóa album!", { id: loadingToast });
       if (activeAlbum === name) setActiveAlbum('Tất cả');
-      if (uploadAlbum === name) setUploadAlbum('Chung');
+      if (uploadAlbum === name) setUploadAlbum('Kỷ niệm');
       fetchPhotos();
       fetchAlbums();
     } catch (error: any) {
@@ -172,35 +197,68 @@ export default function GalleryPage() {
     if (!files || files.length === 0) return;
 
     setUploading(true);
-    const loadingToast = toast.loading(`Đang tải lên ${files.length} ảnh vào ${uploadAlbum}...`);
+    const loadingToast = toast.loading(`Đang chuẩn bị tải lên ${files.length} ảnh...`);
     
+    let totalOriginal = 0;
+    let totalCompressed = 0;
+
     try {
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fileName = `photos/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const rawFile = files[i];
 
+        // 1. Tối ưu hóa và nén sang chuẩn WebP chất lượng cao
+        toast.loading(`Đang nén tối ưu ảnh ${i + 1}/${files.length}: ${rawFile.name}...`, { id: loadingToast });
+        const { file: compressedFile, originalSize, compressedSize } = await compressImageToWebP(rawFile, {
+          maxWidth: 1920,
+          maxHeight: 1920,
+          quality: 0.82
+        });
+
+        totalOriginal += originalSize;
+        totalCompressed += compressedSize;
+
+        // 2. Lấy Signed Upload URL
+        const cleanName = compressedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const fileName = `photos/${Date.now()}_${cleanName}`;
+
+        toast.loading(`Đang tải ảnh ${i + 1}/${files.length} lên kho lưu trữ...`, { id: loadingToast });
         const { signedUrl, fullPath } = await getUploadUrl(fileName);
         
+        // 3. Tải tệp WebP lên Supabase Storage
         const uploadRes = await fetch(signedUrl, {
           method: 'PUT',
-          body: file,
-          headers: { 'Content-Type': file.type || 'image/jpeg' }
+          body: compressedFile,
+          headers: { 'Content-Type': 'image/webp' }
         });
         if (!uploadRes.ok) throw new Error("Tải ảnh thất bại do mạng hoặc bảo mật");
 
+        // 4. Lưu bản ghi ảnh kèm danh mục đã chọn
         await addRecord('photos', { 
-          title: file.name, 
+          title: rawFile.name, 
           url: fullPath,
           album: uploadAlbum 
         });
       }
 
-      toast.success(`Đã tải lên ${files.length} ảnh thành công!`, { id: loadingToast });
+      // 5. Hiển thị thông báo dung lượng đã tiết kiệm được
+      const savedBytes = totalOriginal - totalCompressed;
+      const savedPercent = totalOriginal > 0 ? Math.round((savedBytes / totalOriginal) * 100) : 0;
+
+      if (savedPercent > 0) {
+        toast.success(
+          `Đã tải lên ${files.length} ảnh thành công!\nĐã tối ưu: ${formatBytes(totalOriginal)} ➜ ${formatBytes(totalCompressed)} (Tiết kiệm ${savedPercent}%)`,
+          { id: loadingToast, duration: 6000 }
+        );
+      } else {
+        toast.success(`Đã tải lên ${files.length} ảnh thành công!`, { id: loadingToast });
+      }
+
       fetchPhotos();
     } catch (error: any) {
-      toast.error("Lỗi: " + error.message, { id: loadingToast });
+      toast.error("Lỗi tải lên: " + error.message, { id: loadingToast });
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -235,18 +293,67 @@ export default function GalleryPage() {
     setActiveAlbum(name);
     if (name !== 'Tất cả') {
       setUploadAlbum(name);
-    } else {
-      setUploadAlbum('Chung');
     }
     // Khi đổi album, hủy các ảnh đã chọn ngoài tầm hiển thị
     setSelectedPhotoIds([]);
+  };
+
+  // Thao tác gọi Trợ lý AI Phân tích ảnh
+  const handleAnalyzePhoto = async (photo: any) => {
+    setAiModalState({
+      isOpen: true,
+      photo,
+      result: null,
+      isLoading: true,
+    });
+
+    try {
+      const result = await analyzePhotoAI(photo.publicUrl || photo.url);
+      setAiModalState(prev => ({
+        ...prev,
+        result,
+        isLoading: false,
+      }));
+      toast.success("Trợ lý AI đã phân tích xong bức ảnh!");
+    } catch (err: any) {
+      toast.error("Lỗi AI: " + (err?.message || "Không thể phân tích ảnh"));
+      setAiModalState(prev => ({
+        ...prev,
+        isLoading: false,
+      }));
+    }
+  };
+
+  // Callback chuyển album từ gợi ý AI
+  const handleMoveAlbumFromAI = async (photoId: string, targetAlbum: string) => {
+    await movePhotoToAlbum(photoId, targetAlbum);
+    fetchPhotos();
   };
 
   const filteredPhotos = activeAlbum === 'Tất cả' 
     ? photos 
     : photos.filter(p => (p.album || 'Chung') === activeAlbum);
 
-  const allAlbumNames = ['Chung', ...albums.map(a => a.name)];
+  // Danh sách filter pills: danh mục chuẩn + album tùy chỉnh
+  const customAlbumPills = albums
+    .filter(a => !PRESET_CATEGORIES.some(c => c.name === a.name) && a.name !== 'Chung')
+    .map(a => ({ name: a.name, icon: '📁' }));
+
+  const allFilterPills = [...PRESET_CATEGORIES, ...customAlbumPills];
+
+  // Danh sách các danh mục chọn khi tải ảnh lên
+  const uploadCategoryOptions = [
+    'Kỷ niệm',
+    'Chuyến đi',
+    'Học tập & Công việc',
+    'Gia đình',
+    'Chung',
+    ...albums
+      .map(a => a.name)
+      .filter(name => !['Kỷ niệm', 'Chuyến đi', 'Học tập & Công việc', 'Gia đình', 'Chung', 'Tất cả'].includes(name))
+  ];
+
+  const allAlbumNames = uploadCategoryOptions;
 
   // Thao tác Multi-Select
   const toggleSelectPhoto = (id: string) => {
@@ -308,7 +415,8 @@ export default function GalleryPage() {
 
   return (
     <div className="max-w-7xl mx-auto animate-fade-in flex flex-col h-full relative">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+      {/* Tiêu đề trang & Thanh công cụ hành động */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Kỷ niệm</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Những khoảnh khắc đáng nhớ của bạn</p>
@@ -332,19 +440,23 @@ export default function GalleryPage() {
             <span>{isMultiSelect ? `Thoát chọn (${selectedPhotoIds.length})` : "Chọn nhiều"}</span>
           </button>
 
-          <select 
-            value={uploadAlbum} 
-            onChange={(e) => setUploadAlbum(e.target.value)}
-            className="bg-slate-50 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 text-slate-600 dark:text-slate-200 font-bold text-sm rounded-xl py-2.5 px-4 outline-none cursor-pointer focus:ring-2 focus:ring-pink-100 dark:focus:ring-pink-900 min-w-[120px]"
-          >
-            {allAlbumNames.map(album => (
-              <option key={album} value={album}>{album}</option>
-            ))}
-          </select>
+          {/* Chọn danh mục khi tải ảnh lên */}
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 rounded-xl px-2 py-0.5">
+            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 pl-1">Vào:</span>
+            <select 
+              value={uploadAlbum} 
+              onChange={(e) => setUploadAlbum(e.target.value)}
+              className="bg-transparent text-slate-700 dark:text-slate-200 font-bold text-sm py-2 pr-2 outline-none cursor-pointer min-w-[130px]"
+            >
+              {uploadCategoryOptions.map(cat => (
+                <option key={cat} value={cat} className="bg-white dark:bg-slate-900">{cat}</option>
+              ))}
+            </select>
+          </div>
 
           <label className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-pink-500/30 cursor-pointer flex items-center gap-2 active:scale-95">
             {uploading ? (
-              <span className="animate-pulse flex items-center gap-2"><Upload size={18} /> Đang tải...</span>
+              <span className="animate-pulse flex items-center gap-2"><Upload size={18} /> Đang nén & tải...</span>
             ) : (
               <><ImagePlus size={18} /> Đăng ảnh</>
             )}
@@ -353,8 +465,42 @@ export default function GalleryPage() {
         </div>
       </div>
 
+      {/* FILTER PILLS Ở ĐẦU TRANG: "Tất cả", "Kỷ niệm", "Chuyến đi", "Học tập & Công việc", "Gia đình" */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-6 no-scrollbar">
+        {allFilterPills.map((pill) => {
+          const isActive = activeAlbum === pill.name;
+          const count = pill.name === 'Tất cả' 
+            ? photos.length 
+            : photos.filter(p => (p.album || 'Chung') === pill.name).length;
+          
+          return (
+            <button
+              key={pill.name}
+              onClick={() => handleAlbumClick(pill.name)}
+              className={`px-4 py-2 rounded-2xl font-bold text-xs sm:text-sm whitespace-nowrap transition-all duration-200 flex items-center gap-2 cursor-pointer active:scale-95 shrink-0 ${
+                isActive
+                  ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-md shadow-pink-500/25 scale-[1.02]"
+                  : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs"
+              }`}
+            >
+              <span>{pill.icon}</span>
+              <span>{pill.name}</span>
+              <span
+                className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-400"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex flex-col md:flex-row gap-8 items-start h-full pb-20">
-        {/* Sidebar Album */}
+        {/* Sidebar Danh mục / Album */}
         <div className="w-full md:w-64 flex flex-col gap-2 bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 shrink-0 md:sticky md:top-6">
           <h3 className="text-xs font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-3 mb-2 mt-2">Thư viện ảnh</h3>
           
@@ -450,8 +596,8 @@ export default function GalleryPage() {
               <div className="w-20 h-20 bg-pink-50 dark:bg-pink-950/40 rounded-[2rem] flex items-center justify-center text-pink-400 dark:text-pink-500 mb-4 rotate-3">
                 <ImageIcon size={40} />
               </div>
-              <h3 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">Chưa có bức ảnh nào</h3>
-              <p className="text-slate-500 dark:text-slate-400 font-medium">Hãy lưu giữ khoảnh khắc đầu tiên vào album này nhé!</p>
+              <h3 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">Chưa có bức ảnh nào trong "{activeAlbum}"</h3>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">Hãy chọn ảnh và lưu giữ khoảnh khắc đầu tiên vào danh mục này nhé!</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -501,6 +647,19 @@ export default function GalleryPage() {
                           <button onClick={() => setSelectedPhoto(photo.publicUrl)} className="p-2 bg-white/20 hover:bg-white/40 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center cursor-pointer" title="Phóng to">
                             <Maximize2 size={16} />
                           </button>
+                          
+                          {/* Nút Trợ lý AI Phân tích ảnh */}
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAnalyzePhoto(photo);
+                            }}
+                            className="p-2 bg-gradient-to-tr from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 backdrop-blur-md rounded-xl text-white transition-all flex-1 flex justify-center cursor-pointer shadow-sm hover:scale-105 active:scale-95" 
+                            title="Trợ lý AI phân tích ảnh"
+                          >
+                            <Sparkles size={16} />
+                          </button>
+
                           <button 
                             onClick={() => handleShare(photo.id, 'photo')} 
                             className="p-2 bg-purple-500/80 hover:bg-purple-500 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center cursor-pointer" 
@@ -508,13 +667,15 @@ export default function GalleryPage() {
                           >
                             <Share2 size={16} />
                           </button>
+                          
                           <button 
-                            onClick={() => { setTargetAlbumMove(photo.album || 'Chung'); setMovingPhoto(photo); }} 
+                            onClick={() => { setTargetAlbumMove(photo.album || 'Kỷ niệm'); setMovingPhoto(photo); }} 
                             className="p-2 bg-blue-500/80 hover:bg-blue-500 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center cursor-pointer" 
                             title="Chuyển album"
                           >
                             <FolderInput size={16} />
                           </button>
+                          
                           <button onClick={() => handleDelete(photo.id, photo.url, photo.publicUrl)} className="p-2 bg-red-500/80 hover:bg-red-500 backdrop-blur-md rounded-xl text-white transition-colors flex-1 flex justify-center cursor-pointer" title="Xóa ảnh">
                             <Trash2 size={16} />
                           </button>
@@ -660,6 +821,16 @@ export default function GalleryPage() {
           <img src={selectedPhoto} alt="Phóng to" className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl" />
         </div>
       )}
+
+      {/* Modal Phân tích AI */}
+      <AIPhotoModal
+        isOpen={aiModalState.isOpen}
+        onClose={() => setAiModalState(prev => ({ ...prev, isOpen: false }))}
+        photo={aiModalState.photo}
+        result={aiModalState.result}
+        isLoading={aiModalState.isLoading}
+        onMoveAlbum={handleMoveAlbumFromAI}
+      />
     </div>
   );
 }

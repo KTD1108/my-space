@@ -10,6 +10,7 @@ import {
   VolumeX,
   Volume1,
   Repeat,
+  Repeat1,
   Shuffle,
   ChevronDown,
   ChevronUp,
@@ -19,6 +20,8 @@ import {
   ListMusic,
   ExternalLink,
   Music,
+  Trash2,
+  Plus,
 } from "lucide-react";
 import { useMusic, SongItem } from "@/context/MusicContext";
 
@@ -33,17 +36,21 @@ export default function GlobalMusicPlayer() {
   const {
     currentSong,
     playlist,
+    queue,
     isPlaying,
     currentTime,
     duration,
     volume,
     isMuted,
-    isRepeat,
+    repeatMode,
     isShuffle,
     playSong,
     togglePlay,
-    nextSong,
-    prevSong,
+    playNext,
+    playPrevious,
+    addToQueue,
+    removeFromQueue,
+    clearQueue,
     setVolume,
     toggleMute,
     toggleRepeat,
@@ -54,12 +61,12 @@ export default function GlobalMusicPlayer() {
 
   const [isMinimized, setIsMinimized] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+  const [queueTab, setQueueTab] = useState<"queue" | "playlist">("queue");
   const [showSoundCloudWidget, setShowSoundCloudWidget] = useState(true);
 
   if (!currentSong) return null;
 
   const cleanTitle = currentSong.title.replace(/\.[^/.]+$/, "");
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   // Render icon âm lượng theo mức
   const renderVolumeIcon = () => {
@@ -72,7 +79,7 @@ export default function GlobalMusicPlayer() {
   if (isMinimized) {
     return (
       <div className="fixed bottom-4 right-4 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
-        <div className="flex items-center gap-3 px-3 py-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 shadow-2xl rounded-2xl max-w-[280px] sm:max-w-xs">
+        <div className="flex items-center gap-3 px-3 py-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 shadow-2xl rounded-2xl max-w-[320px] sm:max-w-sm">
           <div
             onClick={() => setIsMinimized(false)}
             className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer group"
@@ -107,11 +114,25 @@ export default function GlobalMusicPlayer() {
 
           <div className="flex items-center gap-1 shrink-0">
             <button
+              onClick={playPrevious}
+              className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
+              title="Bài trước"
+            >
+              <SkipBack size={14} />
+            </button>
+            <button
               onClick={togglePlay}
               className="w-8 h-8 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-sm"
               aria-label={isPlaying ? "Tạm dừng" : "Phát"}
             >
               {isPlaying ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
+            </button>
+            <button
+              onClick={() => playNext()}
+              className="p-1 text-slate-500 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
+              title="Bài tiếp theo"
+            >
+              <SkipForward size={14} />
             </button>
             <button
               onClick={() => setIsMinimized(false)}
@@ -135,52 +156,180 @@ export default function GlobalMusicPlayer() {
 
   return (
     <div className="fixed bottom-3 inset-x-3 md:inset-x-6 max-w-5xl mx-auto z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      {/* Drawer: Danh sách hàng đợi (Queue) */}
+      {/* Drawer: Danh sách hàng đợi & Playlist (Queue & Playlist Hub) */}
       {showQueue && (
-        <div className="mb-2 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xl rounded-2xl max-h-60 overflow-y-auto animate-in fade-in slide-in-from-bottom-2">
+        <div className="mb-2 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xl rounded-2xl max-h-80 overflow-y-auto animate-in fade-in slide-in-from-bottom-2">
+          {/* Header Drawer với 2 Tab: Hàng đợi (Queue) & Danh sách phát (Playlist) */}
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 px-1">
             <div className="flex items-center gap-2">
-              <ListMusic size={15} className="text-purple-600 dark:text-purple-400" />
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                Danh sách phát ({playlist.length})
-              </span>
+              <button
+                onClick={() => setQueueTab("queue")}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  queueTab === "queue"
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
+              >
+                <ListMusic size={13} />
+                <span>Hàng đợi kế tiếp</span>
+                {queue.length > 0 && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      queueTab === "queue"
+                        ? "bg-white/20 text-white"
+                        : "bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300"
+                    }`}
+                  >
+                    {queue.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setQueueTab("playlist")}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  queueTab === "playlist"
+                    ? "bg-purple-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
+              >
+                <Music size={13} />
+                <span>Danh sách phát ({playlist.length})</span>
+              </button>
             </div>
-            <button
-              onClick={() => setShowQueue(false)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-medium"
-            >
-              Đóng
-            </button>
+
+            <div className="flex items-center gap-2">
+              {queueTab === "queue" && queue.length > 0 && (
+                <button
+                  onClick={clearQueue}
+                  className="text-slate-400 hover:text-red-500 text-xs font-medium flex items-center gap-1 px-2 py-0.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                  title="Xóa tất cả bài trong hàng đợi"
+                >
+                  <Trash2 size={12} />
+                  <span>Xóa hết</span>
+                </button>
+              )}
+              <button
+                onClick={() => setShowQueue(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-semibold p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-1">
-            {playlist.map((song: SongItem, idx: number) => {
-              const isCurrent = song.id === currentSong.id;
-              return (
-                <div
-                  key={song.id}
-                  onClick={() => playSong(song)}
-                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs cursor-pointer transition-colors ${
-                    isCurrent
-                      ? "bg-purple-100/70 text-purple-900 dark:bg-purple-950/50 dark:text-purple-200 font-bold"
-                      : "text-slate-600 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <span className="text-[10px] font-mono text-slate-400 w-4 text-right">
-                      {idx + 1}
-                    </span>
-                    <span className="truncate">{song.title.replace(/\.[^/.]+$/, "")}</span>
-                  </div>
-                  {isCurrent && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-600 text-white font-semibold shrink-0">
-                      Đang phát
-                    </span>
-                  )}
+          {/* TAB 1: DANH SÁCH HÀNG ĐỢI (QUEUE) */}
+          {queueTab === "queue" && (
+            <div className="space-y-1">
+              {queue.length === 0 ? (
+                <div className="py-6 text-center text-slate-400 text-xs">
+                  <ListMusic size={24} className="mx-auto mb-1.5 opacity-40 text-purple-500" />
+                  <p className="font-semibold text-slate-600 dark:text-slate-300">
+                    Hàng đợi hiện đang trống
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Chuyển sang tab &quot;Danh sách phát&quot; và bấm dấu &quot;+&quot; để xếp bài hát muốn nghe tiếp theo vào đây!
+                  </p>
                 </div>
-              );
-            })}
-          </div>
+              ) : (
+                queue.map((song: SongItem, idx: number) => {
+                  const songName = song.title.replace(/\.[^/.]+$/, "");
+                  return (
+                    <div
+                      key={`queue-${song.id}-${idx}`}
+                      className="group flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs bg-slate-50/70 dark:bg-slate-800/40 hover:bg-purple-50/80 dark:hover:bg-purple-950/40 transition-colors border border-transparent hover:border-purple-200/50 dark:hover:border-purple-800/50"
+                    >
+                      <div
+                        onClick={() => {
+                          removeFromQueue(idx);
+                          playSong(song);
+                        }}
+                        className="flex items-center gap-2 truncate flex-1 cursor-pointer"
+                        title="Bấm để phát bài này ngay"
+                      >
+                        <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 font-bold w-5 text-right">
+                          #{idx + 1}
+                        </span>
+                        <span className="truncate font-medium text-slate-700 dark:text-slate-200 group-hover:text-purple-600 dark:group-hover:text-purple-300">
+                          {songName}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => {
+                            removeFromQueue(idx);
+                            playSong(song);
+                          }}
+                          className="p-1 text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-lg transition-colors cursor-pointer"
+                          title="Phát ngay"
+                        >
+                          <Play size={12} />
+                        </button>
+                        <button
+                          onClick={() => removeFromQueue(idx)}
+                          className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
+                          title="Xóa khỏi hàng đợi"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: TOÀN BỘ DANH SÁCH PHÁT (PLAYLIST) */}
+          {queueTab === "playlist" && (
+            <div className="space-y-1">
+              {playlist.map((song: SongItem, idx: number) => {
+                const isCurrent = song.id === currentSong.id;
+                const songName = song.title.replace(/\.[^/.]+$/, "");
+                return (
+                  <div
+                    key={`playlist-${song.id}-${idx}`}
+                    className={`group flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors ${
+                      isCurrent
+                        ? "bg-purple-100/70 text-purple-900 dark:bg-purple-950/50 dark:text-purple-200 font-bold"
+                        : "text-slate-600 dark:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
+                    }`}
+                  >
+                    <div
+                      onClick={() => playSong(song)}
+                      className="flex items-center gap-2 truncate flex-1 cursor-pointer"
+                    >
+                      <span className="text-[10px] font-mono text-slate-400 w-4 text-right">
+                        {idx + 1}
+                      </span>
+                      <span className="truncate">{songName}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isCurrent ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-600 text-white font-semibold">
+                          Đang phát
+                        </span>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToQueue(song);
+                          }}
+                          className="px-2 py-0.5 text-[11px] font-semibold text-slate-500 hover:text-purple-600 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Thêm vào hàng đợi phát kế tiếp"
+                        >
+                          <Plus size={11} />
+                          <span>Hàng đợi</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -235,6 +384,7 @@ export default function GlobalMusicPlayer() {
           <div className="flex-1 max-w-xl flex flex-col items-center justify-center">
             {/* Hàng nút Controls */}
             <div className="flex items-center gap-3 md:gap-5">
+              {/* Nút Shuffle (Trộn bài ngẫu nhiên) */}
               <button
                 onClick={toggleShuffle}
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer hidden sm:block ${
@@ -242,19 +392,21 @@ export default function GlobalMusicPlayer() {
                     ? "text-purple-600 dark:text-purple-400 bg-purple-100/70 dark:bg-purple-950/50"
                     : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                 }`}
-                title="Bật/Tắt phát ngẫu nhiên"
+                title={isShuffle ? "Trộn bài ngẫu nhiên: Đang BẬT" : "Trộn bài ngẫu nhiên: Đang TẮT"}
               >
                 <Shuffle size={15} />
               </button>
 
+              {/* Nút Quay lại bài trước */}
               <button
-                onClick={prevSong}
+                onClick={playPrevious}
                 className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg transition-all active:scale-95 cursor-pointer"
                 title="Bài trước đó"
               >
                 <SkipBack size={18} />
               </button>
 
+              {/* Nút Play / Pause */}
               <button
                 onClick={togglePlay}
                 className={`w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center text-white shadow-md active:scale-95 transition-all cursor-pointer ${
@@ -267,24 +419,32 @@ export default function GlobalMusicPlayer() {
                 {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
               </button>
 
+              {/* Nút Chuyển bài kế tiếp */}
               <button
-                onClick={nextSong}
+                onClick={() => playNext()}
                 className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-lg transition-all active:scale-95 cursor-pointer"
                 title="Bài kế tiếp"
               >
                 <SkipForward size={18} />
               </button>
 
+              {/* Nút Repeat (Lặp lại: off -> all -> one -> off) */}
               <button
                 onClick={toggleRepeat}
                 className={`p-1.5 rounded-lg transition-colors cursor-pointer hidden sm:block ${
-                  isRepeat
+                  repeatMode !== "off"
                     ? "text-purple-600 dark:text-purple-400 bg-purple-100/70 dark:bg-purple-950/50"
                     : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                 }`}
-                title="Bật/Tắt lặp lại bài hát"
+                title={
+                  repeatMode === "one"
+                    ? "Lặp lại: 1 bài duy nhất (Nhấp để tắt)"
+                    : repeatMode === "all"
+                    ? "Lặp lại: Cả danh sách (Nhấp để lặp 1 bài)"
+                    : "Lặp lại: Đang tắt (Nhấp để bật lặp danh sách)"
+                }
               >
-                <Repeat size={15} />
+                {repeatMode === "one" ? <Repeat1 size={15} /> : <Repeat size={15} />}
               </button>
             </div>
 
@@ -341,20 +501,23 @@ export default function GlobalMusicPlayer() {
               </div>
             )}
 
-            {/* Nút xem hàng đợi */}
-            {playlist.length > 0 && (
-              <button
-                onClick={() => setShowQueue(!showQueue)}
-                className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                  showQueue
-                    ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-                    : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                }`}
-                title="Danh sách chờ phát"
-              >
-                <ListMusic size={17} />
-              </button>
-            )}
+            {/* Nút xem hàng đợi (Queue) & Playlist */}
+            <button
+              onClick={() => setShowQueue(!showQueue)}
+              className={`relative p-2 rounded-xl transition-colors cursor-pointer ${
+                showQueue
+                  ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
+                  : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              }`}
+              title="Danh sách chờ phát & Hàng đợi"
+            >
+              <ListMusic size={17} />
+              {queue.length > 0 && (
+                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 bg-purple-600 text-white text-[9px] font-bold rounded-full shadow-sm">
+                  {queue.length}
+                </span>
+              )}
+            </button>
 
             {/* Nút bật/tắt SoundCloud Widget */}
             {currentSong.isLink && (

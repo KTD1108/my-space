@@ -257,16 +257,18 @@ export async function deleteCategory(id: string, name: string) {
 
 export async function getCommandSearchData() {
   const supabase = await createClient();
-  const [docsRes, songsRes, schedsRes] = await Promise.all([
-    supabase.from('documents').select('id, title, category, type, url').order('created_at', { ascending: false }).limit(25),
-    supabase.from('songs').select('id, title, url').order('created_at', { ascending: false }).limit(25),
-    supabase.from('study_schedules').select('id, title, date, start_time, is_completed').order('date', { ascending: false }).limit(25)
+  const [docsRes, songsRes, schedsRes, photosRes] = await Promise.all([
+    supabase.from('documents').select('id, title, category, type, url').order('created_at', { ascending: false }).limit(30),
+    supabase.from('songs').select('id, title, url').order('created_at', { ascending: false }).limit(30),
+    supabase.from('study_schedules').select('id, title, date, start_time, is_completed').order('date', { ascending: false }).limit(30),
+    supabase.from('photos').select('id, title, album, url').order('created_at', { ascending: false }).limit(30)
   ]);
 
   return {
     docs: docsRes.data || [],
     songs: songsRes.data || [],
-    schedules: schedsRes.data || []
+    schedules: schedsRes.data || [],
+    photos: photosRes.data || []
   };
 }
 
