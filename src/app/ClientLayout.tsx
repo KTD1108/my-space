@@ -17,7 +17,8 @@ import {
   Command,
   ChevronRight,
   Sun,
-  Moon
+  Moon,
+  Download
 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 import { logout } from "./login/actions";
@@ -178,18 +179,28 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <FocusStudyHub />
         <PWAInstallPrompt />
       
-      {/* Nút mở menu & theme trên Mobile */}
+      {/* Nút mở menu, theme & cài đặt app trên Mobile */}
       <div className="md:hidden fixed top-3.5 right-4 z-50 flex items-center gap-2">
         <button
+          onClick={() => window.dispatchEvent(new CustomEvent('open-pwa-install'))}
+          className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/80 shadow-sm border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+          aria-label="Cài đặt App"
+          title="Tải ứng dụng vào điện thoại"
+        >
+          <Download size={16} />
+          <span className="text-xs font-bold">Tải App</span>
+        </button>
+
+        <button
           onClick={toggleTheme}
-          className="p-2.5 rounded-xl bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
+          className="p-2.5 rounded-xl bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 active:scale-95 transition-all cursor-pointer"
           aria-label="Đổi giao diện sáng/tối"
         >
           {isDark ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} className="text-slate-600" />}
         </button>
 
         <button 
-          className="bg-white dark:bg-slate-900 p-2.5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
+          className="bg-white dark:bg-slate-900 p-2.5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 active:scale-95 transition-all cursor-pointer"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           aria-label="Mở Menu"
         >
@@ -253,8 +264,23 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           ))}
         </div>
         
-        {/* Footer Sidebar: Nút đổi Dark Mode & Trạng thái */}
+        {/* Footer Sidebar: Nút đổi Dark Mode, Cài đặt App & Trạng thái */}
         <div className="p-3 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
+          {/* Nút Cài đặt App / PWA */}
+          <button
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              window.dispatchEvent(new CustomEvent('open-pwa-install'));
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl border border-blue-200/70 dark:border-blue-900/60 bg-blue-50/50 dark:bg-blue-950/40 hover:bg-blue-100/60 dark:hover:bg-blue-900/60 text-xs font-bold text-blue-600 dark:text-blue-400 transition-all cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <Download size={14} />
+              <span>Cài đặt ứng dụng (App)</span>
+            </span>
+            <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/80 text-blue-700 dark:text-blue-300">PWA</span>
+          </button>
+
           {/* Nút Toggle Theme Desktop */}
           <button
             onClick={toggleTheme}
@@ -348,6 +374,17 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     <Settings size={15} className="text-slate-400" />
                     Cài đặt tài khoản
                   </Link>
+
+                  <button 
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      window.dispatchEvent(new CustomEvent('open-pwa-install'));
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl text-xs font-semibold transition-colors cursor-pointer text-left"
+                  >
+                    <Download size={15} />
+                    Cài đặt ứng dụng vào máy
+                  </button>
                   
                   <button 
                     onClick={() => logout()}
