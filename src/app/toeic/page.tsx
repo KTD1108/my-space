@@ -83,14 +83,16 @@ export default function ToeicDailyPage() {
     setIsLoading(true);
     setError(null);
     const targetCount = countOverride || wordCount;
+    const cacheKey = `${dateStr}_${targetCount}`;
 
     try {
       if (!forceRefresh) {
         const cacheRaw = localStorage.getItem(CACHE_STORAGE_KEY);
         if (cacheRaw) {
           const cache: Record<string, DailyVocabSet> = JSON.parse(cacheRaw);
-          if (cache[dateStr] && cache[dateStr].words?.length > 0) {
-            setVocabSet(cache[dateStr]);
+          const cachedSet = cache[cacheKey] || (cache[dateStr]?.words?.length === targetCount ? cache[dateStr] : null);
+          if (cachedSet && cachedSet.words?.length === targetCount) {
+            setVocabSet(cachedSet);
             setIsLoading(false);
             return;
           }
@@ -110,6 +112,7 @@ export default function ToeicDailyPage() {
       try {
         const cacheRaw = localStorage.getItem(CACHE_STORAGE_KEY);
         const cache: Record<string, DailyVocabSet> = cacheRaw ? JSON.parse(cacheRaw) : {};
+        cache[cacheKey] = res.data;
         cache[dateStr] = res.data;
         localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(cache));
       } catch (err) {
@@ -124,6 +127,8 @@ export default function ToeicDailyPage() {
 
   const handleWordCountChange = (newCount: number) => {
     setWordCount(newCount);
+    setError(null);
+    setVocabSet(null); // Kích hoạt skeleton loading ngay lập tức cho người dùng thấy phản hồi
     try {
       localStorage.setItem(WORD_COUNT_KEY, String(newCount));
     } catch {}
@@ -132,8 +137,8 @@ export default function ToeicDailyPage() {
 
   // Load initial words
   useEffect(() => {
-    loadDailyWords(currentDate);
-  }, [currentDate, loadDailyWords]);
+    loadDailyWords(currentDate, false, wordCount);
+  }, [currentDate, loadDailyWords, wordCount]);
 
   // Toggle mastered word
   const handleToggleMastered = (word: string) => {
@@ -228,7 +233,7 @@ export default function ToeicDailyPage() {
             <RefreshCw size={28} />
           </div>
           <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-            Gemini 3.8 đang tuyển chọn từ vựng TOEIC cho ngày {currentDate}...
+            AI đang tuyển chọn {wordCount} từ vựng TOEIC cho ngày {currentDate}...
           </p>
           <p className="text-xs text-slate-400">
             Tối ưu hoá ví dụ thực chiến Part 5, 6, 7 và cụm từ thông dụng

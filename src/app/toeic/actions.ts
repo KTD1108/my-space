@@ -5,9 +5,10 @@ import { DailyVocabSet, ToeicQuizQuestion, ToeicWord } from './types';
 
 const PREFERRED_MODELS = [
   'gemini-3.8-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-flash-lite-latest',
   'gemini-3.7-flash',
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite'
+  'gemini-3.5-flash'
 ];
 
 function getAIClient(): GoogleGenAI {
@@ -18,14 +19,17 @@ function getAIClient(): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
-async function callGeminiSafe(prompt: string, timeoutMs = 8000): Promise<{ text: string; model: string }> {
+async function callGeminiSafe(prompt: string, timeoutMs = 15000): Promise<{ text: string; model: string }> {
   const ai = getAIClient();
   let lastError: Error | null = null;
 
   for (const model of PREFERRED_MODELS) {
     try {
+      // Cho gemini-3.8-flash tối đa 7s để thử; nếu bận/hết quota chuyển ngay sang 3.5-flash-lite
+      const currentTimeout = model === 'gemini-3.8-flash' ? Math.min(timeoutMs, 7000) : timeoutMs;
+
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout (${timeoutMs}ms) khi gọi model ${model}`)), timeoutMs)
+        setTimeout(() => reject(new Error(`Timeout (${currentTimeout}ms) khi gọi model ${model}`)), currentTimeout)
       );
 
       const apiPromise = ai.models.generateContent({
@@ -125,7 +129,8 @@ TRẢ VỀ ĐÚNG ĐỊNH DẠNG JSON THEO CẤU TRÚC SAU (không trả về ma
   ]
 }`;
 
-    const res = await callGeminiSafe(prompt, 7000);
+    const timeoutMs = Math.max(15000, validCount * 1800);
+    const res = await callGeminiSafe(prompt, timeoutMs);
     const cleaned = cleanJsonText(res.text);
     const parsed = JSON.parse(cleaned);
 
@@ -198,7 +203,8 @@ TRẢ VỀ ĐÚNG JSON MẢNG:
   }
 ]`;
 
-    const res = await callGeminiSafe(prompt, 7000);
+    const timeoutMs = Math.max(12000, qCount * 2500);
+    const res = await callGeminiSafe(prompt, timeoutMs);
     const cleaned = cleanJsonText(res.text);
     const quiz: ToeicQuizQuestion[] = JSON.parse(cleaned);
 
