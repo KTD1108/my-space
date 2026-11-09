@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { getDashboardStats, getProfileData, getSchedules, getRecentPhoto, getTodayFocusStats } from './actions/data';
+import { getHomeDashboardData, HomeDashboardData } from './actions/data';
 import { 
   CalendarDays, 
   FileText, 
@@ -17,13 +17,26 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+const CACHE_KEY = 'myspace_dashboard_cache_v2';
+
 export default function Home() {
-  const [stats, setStats] = useState({ docs: 0, songs: 0, photos: 0 });
-  const [profile, setProfile] = useState<{name: string} | null>(null);
-  const [todaySchedules, setTodaySchedules] = useState<any[]>([]);
-  const [recentPhoto, setRecentPhoto] = useState<string | null>(null);
-  const [focusStats, setFocusStats] = useState({ totalMinutes: 0, sessionsCount: 0 });
-  const [loading, setLoading] = useState(true);
+  // Lấy dữ liệu đệm từ sessionStorage (nếu có) để vẽ màn hình TỨC THÌ trong 0ms không đợi server
+  const [cachedData] = useState<HomeDashboardData | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem(CACHE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
+    return null;
+  });
+
+  const [stats, setStats] = useState(cachedData?.stats || { docs: 0, songs: 0, photos: 0 });
+  const [profile, setProfile] = useState<{name: string} | null>(cachedData?.profile || null);
+  const [todaySchedules, setTodaySchedules] = useState<any[]>(cachedData?.todaySchedules || []);
+  const [recentPhoto, setRecentPhoto] = useState<string | null>(cachedData?.recentPhoto || null);
+  const [focusStats, setFocusStats] = useState(cachedData?.focusStats || { totalMinutes: 0, sessionsCount: 0 });
+  const [loading, setLoading] = useState(!cachedData);
 
   // Lời chào theo thời gian trong ngày
   const hour = new Date().getHours();
@@ -40,33 +53,27 @@ export default function Home() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     async function loadData() {
       try {
-        const [s, p, scheds, photoUrl, dbFocus] = await Promise.all([
-          getDashboardStats(),
-          getProfileData(),
-          getSchedules(),
-          getRecentPhoto(),
-          getTodayFocusStats()
-        ]);
-        setStats(s);
-        setProfile(p as any);
+        // Chỉ gọi 1 Server Action duy nhất (giảm 80% độ trễ mạng và số lần xác thực)
+        const data = await getHomeDashboardData();
+        if (!isMounted) return;
 
-        const now = new Date();
-        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        setTodaySchedules(scheds.filter((sch: any) => sch.date === todayStr && !sch.is_completed).slice(0, 3));
+        setStats(data.stats);
+        if (data.profile) setProfile(data.profile);
+        setTodaySchedules(data.todaySchedules);
+        if (data.recentPhoto) setRecentPhoto(data.recentPhoto);
 
-        if (photoUrl) {
-          setRecentPhoto(photoUrl);
-        }
-
-        // Đọc localStorage dự phòng
+        // Đọc localStorage dự phòng cho các phiên học offline
         let localMinutes = 0;
         let localCount = 0;
         try {
           const raw = localStorage.getItem('my_space_focus_sessions');
           if (raw) {
             const sessions: any[] = JSON.parse(raw);
+            const now = new Date();
             const todaySessions = sessions.filter((sess: any) => {
               if (!sess.completed_at) return false;
               return new Date(sess.completed_at).toDateString() === now.toDateString();
@@ -78,21 +85,23 @@ export default function Home() {
           console.warn("Lỗi đọc local focus sessions:", e);
         }
 
-        if (dbFocus) {
-          setFocusStats({
-            totalMinutes: Math.max(dbFocus.total_minutes || 0, localMinutes),
-            sessionsCount: Math.max(dbFocus.sessions_count || 0, localCount)
-          });
-        } else {
-          setFocusStats({
-            totalMinutes: localMinutes,
-            sessionsCount: localCount
-          });
-        }
+        const consolidatedFocus = {
+          totalMinutes: Math.max(data.focusStats.totalMinutes || 0, localMinutes),
+          sessionsCount: Math.max(data.focusStats.sessionsCount || 0, localCount)
+        };
+        setFocusStats(consolidatedFocus);
+
+        // Lưu vào cache cho lần truy cập tiếp theo hiển thị ngay lập tức (0ms)
+        try {
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+            ...data,
+            focusStats: consolidatedFocus
+          }));
+        } catch {}
       } catch (e) {
         console.error("Lỗi khi tải dữ liệu trang chủ:", e);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
     loadData();

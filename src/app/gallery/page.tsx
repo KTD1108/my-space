@@ -30,9 +30,28 @@ import {
   movePhotosBulk
 } from "@/app/actions/data";
 
+const PHOTOS_CACHE_KEY = 'myspace_photos_cache_v1';
+const ALBUMS_CACHE_KEY = 'myspace_albums_cache_v1';
+
 export default function GalleryPage() {
-  const [photos, setPhotos] = useState<any[]>([]);
-  const [albums, setAlbums] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem(PHOTOS_CACHE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
+    return [];
+  });
+  const [albums, setAlbums] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem(ALBUMS_CACHE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
+    return [];
+  });
   const [uploading, setUploading] = useState(false);
   
   const [activeAlbum, setActiveAlbum] = useState('Tất cả');
@@ -51,7 +70,12 @@ export default function GalleryPage() {
   const [isBulkMoving, setIsBulkMoving] = useState(false);
   const [targetBulkAlbumMove, setTargetBulkAlbumMove] = useState('Chung');
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !sessionStorage.getItem(PHOTOS_CACHE_KEY);
+    }
+    return true;
+  });
 
   useEffect(() => { 
     fetchPhotos(); 
@@ -71,10 +95,12 @@ export default function GalleryPage() {
   };
 
   const fetchPhotos = async () => {
-    setIsLoading(true);
     try {
       const data = await getPhotos();
-      setPhotos(data);
+      setPhotos(data || []);
+      try {
+        sessionStorage.setItem(PHOTOS_CACHE_KEY, JSON.stringify(data || []));
+      } catch {}
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -85,7 +111,10 @@ export default function GalleryPage() {
   const fetchAlbums = async () => {
     try {
       const data = await getAlbums();
-      setAlbums(data);
+      setAlbums(data || []);
+      try {
+        sessionStorage.setItem(ALBUMS_CACHE_KEY, JSON.stringify(data || []));
+      } catch {}
     } catch (e: any) {
       toast.error(e.message);
     }

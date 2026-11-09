@@ -529,4 +529,87 @@ export async function getNoteContent(docUrl: string): Promise<string> {
   return await blob.text();
 }
 
+// ---- TỐI ƯU HÓA HIỆU NĂNG CAO: GỘP TOÀN BỘ TRUY VẤN DASHBOARD VÀO 1 SERVER ACTION DUY NHẤT ----
+export interface HomeDashboardData {
+  stats: { docs: number; songs: number; photos: number };
+  profile: { name: string; avatar?: string | null; email?: string } | null;
+  todaySchedules: any[];
+  recentPhoto: string | null;
+  focusStats: { totalMinutes: number; sessionsCount: number };
+}
+
+export async function getHomeDashboardData(): Promise<HomeDashboardData> {
+  const user = await getUser();
+  const supabase = await createClient();
+
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  now.setHours(0, 0, 0, 0);
+
+  // Chạy song song 6 truy vấn trên 1 kết nối duy nhất ở server
+  const [
+    docsCountRes,
+    songsCountRes,
+    photosCountRes,
+    todaySchedulesRes,
+    recentPhotoRes,
+    todayFocusRes
+  ] = await Promise.all([
+    supabase.from('documents').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+    supabase.from('songs').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+    supabase.from('photos').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+    supabase.from('study_schedules')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('date', todayStr)
+      .eq('is_completed', false)
+      .order('start_time', { ascending: true })
+      .limit(3),
+    supabase.from('photos')
+      .select('url')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from('focus_sessions')
+      .select('duration_minutes')
+      .eq('user_id', user.id)
+      .gte('completed_at', now.toISOString())
+  ]);
+
+  // Xử lý signed URL ảnh đại diện & ảnh gần nhất (nếu cache hit thì 0ms)
+  const [avatarUrl, recentPhotoUrl] = await Promise.all([
+    user.user_metadata?.avatar_url
+      ? getCachedSignedUrl(user.user_metadata.avatar_url, 60 * 60 * 24 * 7)
+      : Promise.resolve(null),
+    recentPhotoRes.data?.url
+      ? getCachedSignedUrl(recentPhotoRes.data.url)
+      : Promise.resolve(null)
+  ]);
+
+  const focusMinutes = (todayFocusRes.data || []).reduce(
+    (acc, curr) => acc + (curr.duration_minutes || 0),
+    0
+  );
+
+  return {
+    stats: {
+      docs: docsCountRes.count || 0,
+      songs: songsCountRes.count || 0,
+      photos: photosCountRes.count || 0,
+    },
+    profile: {
+      email: user.email,
+      name: user.user_metadata?.display_name || user.email?.split('@')[0] || 'Bạn',
+      avatar: avatarUrl
+    },
+    todaySchedules: todaySchedulesRes.data || [],
+    recentPhoto: recentPhotoUrl,
+    focusStats: {
+      totalMinutes: focusMinutes,
+      sessionsCount: todayFocusRes.data?.length || 0
+    }
+  };
+}
+
 

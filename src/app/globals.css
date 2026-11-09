@@ -16,5 +16,12 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tối ưu hóa hiệu năng render và chống lag khi cuộn */
+* {
+  -webkit-tap-highlight-color: transparent;
 }

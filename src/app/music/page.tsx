@@ -25,10 +25,25 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 }
 
+const SONGS_CACHE_KEY = 'myspace_songs_cache_v1';
+
 export default function MusicPage() {
-  const [songs, setSongs] = useState<SongItem[]>([]);
+  const [songs, setSongs] = useState<SongItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem(SONGS_CACHE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
+    return [];
+  });
   const [uploading, setUploading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !sessionStorage.getItem(SONGS_CACHE_KEY);
+    }
+    return true;
+  });
 
   // Trạng thái cho form thêm SoundCloud
   const [isAddingLink, setIsAddingLink] = useState(false);
@@ -51,7 +66,6 @@ export default function MusicPage() {
   } = useMusic();
 
   const fetchSongs = async () => {
-    setIsLoading(true);
     try {
       const data = await getSongs();
       const songItems: SongItem[] = (data || []).map((item) => ({
@@ -65,6 +79,9 @@ export default function MusicPage() {
       setSongs(songItems);
       // Đồng bộ vào playlist toàn cục nếu chưa có playlist
       setPlaylist(songItems);
+      try {
+        sessionStorage.setItem(SONGS_CACHE_KEY, JSON.stringify(songItems));
+      } catch {}
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Không thể tải danh sách bài hát";
       console.error("[MusicPage] Lỗi tải bài hát:", e);

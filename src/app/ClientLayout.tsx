@@ -32,7 +32,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [profile, setProfile] = useState<{name: string, avatar?: string | null, email?: string} | null>(null);
+  const [profile, setProfile] = useState<{name: string, avatar?: string | null, email?: string} | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem('myspace_profile_cache_v1');
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
+    return null;
+  });
   const [isDark, setIsDark] = useState(false);
 
   // Khởi tạo theme (Dark/Light) từ localStorage hoặc system preference
@@ -67,7 +75,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     async function loadProfile() {
       try {
         const data = await getProfileData();
-        if (data && isMounted) setProfile(data);
+        if (data && isMounted) {
+          setProfile(data);
+          try {
+            sessionStorage.setItem('myspace_profile_cache_v1', JSON.stringify(data));
+          } catch {}
+        }
       } catch (e) {
         console.warn("Không thể tải thông tin hồ sơ người dùng:", e);
       }
@@ -142,7 +155,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </div>
 
       {/* Sidebar Chuẩn Studio / SaaS Cao Cấp */}
-      <aside className={`${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-40 w-64 h-full bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col transition-all duration-200 ease-out`}>
+      <aside className={`${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 fixed md:relative z-40 w-64 h-full bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col transition-transform duration-200 ease-out`}>
         
         {/* Brand Header */}
         <div className="px-6 py-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80">

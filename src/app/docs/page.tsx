@@ -54,9 +54,28 @@ interface CategoryItem {
   created_at?: string;
 }
 
+const DOCS_CACHE_KEY = 'myspace_docs_cache_v1';
+const CATEGORIES_CACHE_KEY = 'myspace_categories_cache_v1';
+
 export default function DocsPage() {
-  const [docs, setDocs] = useState<DocItem[]>([]);
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [docs, setDocs] = useState<DocItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem(DOCS_CACHE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
+    return [];
+  });
+  const [categories, setCategories] = useState<CategoryItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem(CATEGORIES_CACHE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
+    return [];
+  });
   const [uploading, setUploading] = useState(false);
   
   const [activeCategory, setActiveCategory] = useState('Tất cả');
@@ -94,7 +113,12 @@ export default function DocsPage() {
     setIsAIStudioOpen(true);
   };
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !sessionStorage.getItem(DOCS_CACHE_KEY);
+    }
+    return true;
+  });
 
   useEffect(() => { 
     fetchDocs(); 
@@ -123,10 +147,12 @@ export default function DocsPage() {
   };
 
   const fetchDocs = async () => {
-    setIsLoading(true);
     try {
       const data = await getDocs();
-      setDocs(data);
+      setDocs(data || []);
+      try {
+        sessionStorage.setItem(DOCS_CACHE_KEY, JSON.stringify(data || []));
+      } catch {}
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -137,7 +163,10 @@ export default function DocsPage() {
   const fetchCategories = async () => {
     try {
       const data = await getCategories();
-      setCategories(data);
+      setCategories(data || []);
+      try {
+        sessionStorage.setItem(CATEGORIES_CACHE_KEY, JSON.stringify(data || []));
+      } catch {}
     } catch (e: any) {
       toast.error(e.message);
     }

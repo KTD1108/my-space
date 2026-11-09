@@ -36,9 +36,24 @@ import {
 import { ambientAudio } from "@/lib/ambientAudio";
 import WeeklyScheduleView, { ScheduleItem, ColorScheme } from "@/components/WeeklyScheduleView";
 
+const SCHEDULES_CACHE_KEY = 'myspace_schedules_cache_v1';
+
 export default function SchedulePage() {
-  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [schedules, setSchedules] = useState<ScheduleItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = sessionStorage.getItem(SCHEDULES_CACHE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !sessionStorage.getItem(SCHEDULES_CACHE_KEY);
+    }
+    return true;
+  });
   const [viewMode, setViewMode] = useState<'week' | 'calendar' | 'timeline'>('week');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [currentWeekDate, setCurrentWeekDate] = useState(new Date());
@@ -100,7 +115,11 @@ export default function SchedulePage() {
   const fetchSchedules = useCallback(async () => {
     try {
       const data = await getSchedules();
-      setSchedules((data || []) as ScheduleItem[]);
+      const items = (data || []) as ScheduleItem[];
+      setSchedules(items);
+      try {
+        sessionStorage.setItem(SCHEDULES_CACHE_KEY, JSON.stringify(items));
+      } catch {}
     } catch (e: unknown) {
       const err = e as Error;
       toast.error(err.message || "Không thể tải lịch trình");
@@ -115,7 +134,13 @@ export default function SchedulePage() {
     async function loadInitialData() {
       try {
         const data = await getSchedules();
-        if (!ignore) setSchedules((data || []) as ScheduleItem[]);
+        const items = (data || []) as ScheduleItem[];
+        if (!ignore) {
+          setSchedules(items);
+          try {
+            sessionStorage.setItem(SCHEDULES_CACHE_KEY, JSON.stringify(items));
+          } catch {}
+        }
       } catch (e: unknown) {
         const err = e as Error;
         toast.error(err.message || "Không thể tải lịch trình");
