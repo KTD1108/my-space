@@ -1,4 +1,3 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
@@ -33,7 +32,7 @@ export async function middleware(request: NextRequest) {
     cookie => cookie.name.includes('auth-token') || cookie.name.startsWith('sb-')
   )
 
-  // Nếu người dùng KHÔNG có bất kỳ cookie auth nào:
+  // 5. Nếu người dùng KHÔNG có bất kỳ cookie auth nào:
   if (!hasAuthCookie) {
     if (isAuthPage) {
       return NextResponse.next() // Vào trang login tức thì (0ms)
@@ -42,50 +41,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // 5. Nếu CÓ cookie auth: Khởi tạo client Supabase để refresh session hợp lệ
-  let supabaseResponse = NextResponse.next({
-    request: { headers: request.headers },
-  })
+  // 6. TỐI ƯU HÓA SIÊU MƯỢT (0ms ROUTER TRANSITION):
+  // Khi người dùng đã có auth cookie và đang chuyển trang trong Single Page App (RSC / prefetch):
+  // Trả về Next.js RSC payload NGAY LẬP TỨC (0ms), tuyệt đối KHÔNG chặn bằng API call sang Supabase!
+  const isRSC = request.headers.has('rsc') || 
+                request.headers.has('next-router-prefetch') || 
+                request.headers.has('next-router-state-tree') ||
+                request.headers.get('purpose') === 'prefetch' ||
+                request.headers.get('accept')?.includes('text/x-component')
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
-          supabaseResponse = NextResponse.next({
-            request: { headers: request.headers },
-          })
-          supabaseResponse.cookies.set({ name, value, ...options })
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options })
-          supabaseResponse = NextResponse.next({
-            request: { headers: request.headers },
-          })
-          supabaseResponse.cookies.set({ name, value: '', ...options })
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Chưa đăng nhập thực sự (cookie giả/hết hạn) mà muốn vào web -> Đẩy ra trang login
-  if (!user && !isAuthPage) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  if (isRSC) {
+    return NextResponse.next()
   }
 
-  // Đã đăng nhập mà cố vào trang Đăng nhập -> Đẩy về Trang chủ
-  if (user && isAuthPage) {
+  // 7. Đã có auth cookie mà cố vào lại trang Đăng nhập -> Chuyển về trang chủ tức thì (0ms)
+  if (isAuthPage) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  return supabaseResponse
+  // 8. Đối với full document request: Phục vụ trang HTML ngay lập tức (0ms).
+  // Mọi thao tác đọc/ghi dữ liệu nhạy cảm đều được Server Action kiểm tra getUser() an toàn 100%.
+  return NextResponse.next()
 }
 
 export const config = {

@@ -53,6 +53,20 @@ export default function Home() {
   };
 
   useEffect(() => {
+    // 1. NGAY LẬP TỨC khôi phục cache trên client trong 0ms (giải quyết triệt để độ trễ SSR):
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached.stats) setStats(cached.stats);
+        if (cached.profile) setProfile(cached.profile);
+        if (cached.todaySchedules) setTodaySchedules(cached.todaySchedules);
+        if (cached.recentPhoto) setRecentPhoto(cached.recentPhoto);
+        if (cached.focusStats) setFocusStats(cached.focusStats);
+        setLoading(false);
+      }
+    } catch {}
+
     let isMounted = true;
 
     async function loadData() {

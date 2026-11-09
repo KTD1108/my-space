@@ -92,6 +92,18 @@ export default function MusicPage() {
   };
 
   useEffect(() => {
+    // Khôi phục cache tức thì trong 0ms khi client mount
+    try {
+      const raw = localStorage.getItem(SONGS_CACHE_KEY);
+      if (raw) {
+        const items = JSON.parse(raw);
+        if (Array.isArray(items) && items.length > 0) {
+          setSongs(items);
+          setPlaylist(items);
+          setIsLoading(false);
+        }
+      }
+    } catch {}
     fetchSongs();
   }, []);
 

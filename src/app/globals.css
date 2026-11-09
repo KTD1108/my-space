@@ -25,3 +25,14 @@ body {
 * {
   -webkit-tap-highlight-color: transparent;
 }
+
+html {
+  scroll-behavior: smooth;
+  text-size-adjust: 100%;
+}
+
+/* Tăng tốc phần cứng GPU cho hiệu ứng chuyển động đạt 60fps mượt mà */
+main, aside {
+  transform: translateZ(0);
+  will-change: auto;
+}

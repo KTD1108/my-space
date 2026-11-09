@@ -121,6 +121,25 @@ export default function DocsPage() {
   });
 
   useEffect(() => { 
+    // Khôi phục cache tài liệu & chuyên mục tức thì trong 0ms khi client mount
+    try {
+      const rawDocs = localStorage.getItem(DOCS_CACHE_KEY);
+      if (rawDocs) {
+        const items = JSON.parse(rawDocs);
+        if (Array.isArray(items) && items.length > 0) {
+          setDocs(items);
+          setIsLoading(false);
+        }
+      }
+      const rawCats = localStorage.getItem(CATEGORIES_CACHE_KEY);
+      if (rawCats) {
+        const cats = JSON.parse(rawCats);
+        if (Array.isArray(cats) && cats.length > 0) {
+          setCategories(cats);
+        }
+      }
+    } catch {}
+
     fetchDocs(); 
     fetchCategories();
 

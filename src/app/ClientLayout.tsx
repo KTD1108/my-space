@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   LayoutDashboard, 
   FileText, 
@@ -69,8 +69,21 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   };
 
   const isAuthRoute = pathname === "/login" || pathname === "/reset-password" || pathname.startsWith("/login/");
+  const hasLoadedProfileRef = useRef(false);
 
   useEffect(() => {
+    // 1. Khôi phục Profile ngay lập tức từ localStorage (0ms)
+    try {
+      const raw = localStorage.getItem('myspace_profile_cache_v2');
+      if (raw) {
+        setProfile(JSON.parse(raw));
+      }
+    } catch {}
+
+    // 2. Chỉ đồng bộ hồ sơ 1 lần duy nhất khi ứng dụng mở, không gọi lại ở mỗi lần đổi tab
+    if (isAuthRoute || hasLoadedProfileRef.current) return;
+    hasLoadedProfileRef.current = true;
+
     let isMounted = true;
     async function loadProfile() {
       try {
@@ -85,9 +98,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         console.warn("Không thể tải thông tin hồ sơ người dùng:", e);
       }
     }
-    if (!isAuthRoute) {
-      loadProfile();
-    }
+    loadProfile();
+
     return () => {
       isMounted = false;
     };
@@ -186,6 +198,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                   <Link 
                     key={item.href} 
                     href={item.href} 
+                    prefetch={true}
                     onClick={() => setIsMobileMenuOpen(false)} 
                     className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                       isActive 

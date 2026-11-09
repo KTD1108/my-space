@@ -129,6 +129,18 @@ export default function SchedulePage() {
   }, []);
 
   useEffect(() => { 
+    // Khôi phục cache lịch trình tức thì trong 0ms khi client mount
+    try {
+      const raw = localStorage.getItem(SCHEDULES_CACHE_KEY);
+      if (raw) {
+        const items = JSON.parse(raw);
+        if (Array.isArray(items) && items.length > 0) {
+          setSchedules(items);
+          setIsLoading(false);
+        }
+      }
+    } catch {}
+
     let ignore = false;
 
     async function loadInitialData() {

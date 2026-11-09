@@ -5,6 +5,14 @@ import { supabaseAdmin } from '@/lib/supabase-server'
 // Bộ nhớ đệm In-Memory lưu trữ các Signed URL hợp lệ (TTL mặc định đến 12h)
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
+// Bộ nhớ đệm In-Memory cho Dashboard (giúp chuyển trang và revalidate trong 0ms)
+const homeDashboardCache = new Map<string, { data: any; expiresAt: number }>();
+
+function invalidateUserDashboardCache(userId?: string) {
+  if (userId) homeDashboardCache.delete(userId);
+  else homeDashboardCache.clear();
+}
+
 export async function getCachedSignedUrl(path: string, expiresInSec: number = 86400): Promise<string> {
   if (!path || path.startsWith('http')) return path || '';
   const cached = signedUrlCache.get(path);
@@ -37,12 +45,15 @@ export async function addRecord(table: string, payload: Record<string, unknown>)
   const supabase = await createClient();
   const { error } = await supabase.from(table).insert([{ ...payload, user_id: user.id }]);
   if (error) throw new Error(error.message);
+  invalidateUserDashboardCache(user.id);
 }
 
 export async function deleteRecord(table: string, id: string, path: string) {
+  const user = await getUser();
   const supabase = await createClient();
   const { error: dbError } = await supabase.from(table).delete().eq('id', id);
   if (dbError) throw new Error(`Lỗi xóa bản ghi: ${dbError.message}`);
+  invalidateUserDashboardCache(user.id);
 
   if (path && !path.startsWith('http')) {
     signedUrlCache.delete(path);
@@ -293,6 +304,7 @@ export async function addSchedule(payload: Record<string, unknown>) {
   const supabase = await createClient();
   const { error } = await supabase.from('study_schedules').insert([{ ...payload, user_id: user.id }]);
   if (error) throw new Error(error.message);
+  invalidateUserDashboardCache(user.id);
 }
 
 export async function addSchedules(payloads: Record<string, unknown>[]) {
@@ -302,24 +314,28 @@ export async function addSchedules(payloads: Record<string, unknown>[]) {
   const records = payloads.map(p => ({ ...p, user_id: user.id }));
   const { error } = await supabase.from('study_schedules').insert(records);
   if (error) throw new Error(error.message);
+  invalidateUserDashboardCache(user.id);
 }
 
 export async function updateScheduleStatus(id: string, is_completed: boolean) {
   const supabase = await createClient();
   const { error } = await supabase.from('study_schedules').update({ is_completed }).eq('id', id);
   if (error) throw new Error(error.message);
+  invalidateUserDashboardCache();
 }
 
 export async function updateSchedule(id: string, payload: Record<string, unknown>) {
   const supabase = await createClient();
   const { error } = await supabase.from('study_schedules').update(payload).eq('id', id);
   if (error) throw new Error(error.message);
+  invalidateUserDashboardCache();
 }
 
 export async function deleteSchedule(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from('study_schedules').delete().eq('id', id);
   if (error) throw new Error(error.message);
+  invalidateUserDashboardCache();
 }
 
 // ---- API CHIA SẺ (SHARING) ----
@@ -517,6 +533,7 @@ export async function saveQuickNote(payload: {
     throw new Error(`Lỗi lưu bản ghi ghi chú: ${insertError.message}`);
   }
 
+  invalidateUserDashboardCache(user.id);
   return { success: true, doc: data };
 }
 
@@ -550,6 +567,12 @@ export async function getHomeDashboardData(): Promise<HomeDashboardData> {
       recentPhoto: null,
       focusStats: { totalMinutes: 0, sessionsCount: 0 }
     };
+  }
+
+  // Nếu trong bộ nhớ đệm server còn hạn (15s), trả về ngay lập tức trong 0.01ms
+  const cached = homeDashboardCache.get(user.id);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
   }
 
   const now = new Date();
@@ -593,7 +616,7 @@ export async function getHomeDashboardData(): Promise<HomeDashboardData> {
     ? await getCachedSignedUrl(recentPhotoRes.data.url)
     : null;
 
-  return {
+  const result: HomeDashboardData = {
     stats: {
       docs: docsCountRes.count || 0,
       songs: songsCountRes.count || 0,
@@ -611,6 +634,9 @@ export async function getHomeDashboardData(): Promise<HomeDashboardData> {
       sessionsCount: 0
     }
   };
+
+  homeDashboardCache.set(user.id, { data: result, expiresAt: Date.now() + 15000 });
+  return result;
 }
 
 

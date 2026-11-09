@@ -78,6 +78,24 @@ export default function GalleryPage() {
   });
 
   useEffect(() => { 
+    // Khôi phục cache ảnh & album tức thì trong 0ms khi client mount
+    try {
+      const rawPhotos = localStorage.getItem(PHOTOS_CACHE_KEY);
+      if (rawPhotos) {
+        const items = JSON.parse(rawPhotos);
+        if (Array.isArray(items) && items.length > 0) {
+          setPhotos(items);
+          setIsLoading(false);
+        }
+      }
+      const rawAlbums = localStorage.getItem(ALBUMS_CACHE_KEY);
+      if (rawAlbums) {
+        const albumsList = JSON.parse(rawAlbums);
+        if (Array.isArray(albumsList) && albumsList.length > 0) {
+          setAlbums(albumsList);
+        }
+      }
+    } catch {}
     fetchPhotos(); 
     fetchAlbums();
   }, []);
