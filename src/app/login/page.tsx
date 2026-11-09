@@ -70,12 +70,20 @@ export default function LoginPage() {
       const result = isLogin ? await login(formData) : await signup(formData);
       
       if (result.success) {
-        toast.success(
-          isLogin ? "Đăng nhập thành công!" : "Đăng ký thành công! Đang vào hệ thống...",
-          { id: loadingToast }
-        );
-        router.push("/");
-        router.refresh(); 
+        if (isLogin || result.hasSession) {
+          toast.success(
+            isLogin ? "Đăng nhập thành công!" : "Đăng ký thành công! Đang vào hệ thống...",
+            { id: loadingToast }
+          );
+          router.push("/");
+          router.refresh(); 
+        } else {
+          toast.success(
+            result.message || "Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt tài khoản.",
+            { id: loadingToast, duration: 8000 }
+          );
+          setIsLogin(true);
+        }
       } else {
         toast.error(result.error || "Có lỗi xảy ra", { id: loadingToast });
       }
