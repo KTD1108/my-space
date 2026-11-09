@@ -1,6 +1,7 @@
 "use server"
 import { createClient } from '@/utils/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase-server' 
+import { cookies } from 'next/headers'
 
 // Bộ nhớ đệm In-Memory lưu trữ các Signed URL hợp lệ (TTL mặc định đến 12h)
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
@@ -11,6 +12,44 @@ const homeDashboardCache = new Map<string, { data: any; expiresAt: number }>();
 function invalidateUserDashboardCache(userId?: string) {
   if (userId) homeDashboardCache.delete(userId);
   else homeDashboardCache.clear();
+}
+
+// Giải mã JWT siêu tốc trực tiếp từ Cookie (0.05ms) thay vì gọi mạng sang Supabase Auth (580ms)
+async function getFastUser() {
+  try {
+    const cookieStore = await cookies();
+    const allCookies = cookieStore.getAll();
+    const authCookies = allCookies
+      .filter(c => c.name.includes('-auth-token'))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (authCookies.length > 0) {
+      let rawVal = authCookies.map(c => c.value).join('');
+      if (rawVal.startsWith('base64-')) {
+        rawVal = Buffer.from(rawVal.slice(7), 'base64').toString('utf8');
+      }
+      const parsed = JSON.parse(rawVal);
+      const accessToken = parsed.access_token || (Array.isArray(parsed) ? parsed[0] : null);
+      if (accessToken && typeof accessToken === 'string') {
+        const parts = accessToken.split('.');
+        if (parts.length >= 2) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+          if (payload.exp && payload.exp * 1000 > Date.now()) {
+            return {
+              id: payload.sub as string,
+              email: payload.email as string,
+              user_metadata: (payload.user_metadata || {}) as Record<string, any>
+            };
+          }
+        }
+      }
+    }
+  } catch {}
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Từ chối truy cập: Bạn chưa đăng nhập.');
+  return user;
 }
 
 export async function getCachedSignedUrl(path: string, expiresInSec: number = 86400): Promise<string> {
@@ -26,10 +65,7 @@ export async function getCachedSignedUrl(path: string, expiresInSec: number = 86
 }
 
 async function getUser() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Từ chối truy cập: Bạn chưa đăng nhập.')
-  return user
+  return await getFastUser();
 }
 
 export async function getUploadUrl(path: string) {
@@ -278,8 +314,7 @@ export async function updateProfileMetadata(name: string, avatarPath?: string) {
 }
 
 export async function getProfileData() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getFastUser().catch(() => null);
   if (!user) return null;
   let publicAvatarUrl = null;
   if (user.user_metadata?.avatar_url) {
@@ -556,8 +591,7 @@ export interface HomeDashboardData {
 }
 
 export async function getHomeDashboardData(): Promise<HomeDashboardData> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getFastUser().catch(() => null);
 
   if (!user) {
     return {
@@ -574,6 +608,8 @@ export async function getHomeDashboardData(): Promise<HomeDashboardData> {
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
   }
+
+  const supabase = await createClient();
 
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;

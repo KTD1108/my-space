@@ -38,22 +38,20 @@ import WeeklyScheduleView, { ScheduleItem, ColorScheme } from "@/components/Week
 
 const SCHEDULES_CACHE_KEY = 'myspace_schedules_cache_v2';
 
+function getStoredSchedules(): ScheduleItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('myspace_schedules_cache_v2')
+      || localStorage.getItem('myspace_schedules_cache_v1')
+      || sessionStorage.getItem('myspace_schedules_cache_v1');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
 export default function SchedulePage() {
-  const [schedules, setSchedules] = useState<ScheduleItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(SCHEDULES_CACHE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch {}
-    }
-    return [];
-  });
-  const [isLoading, setIsLoading] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !localStorage.getItem(SCHEDULES_CACHE_KEY);
-    }
-    return true;
-  });
+  const [schedules, setSchedules] = useState<ScheduleItem[]>(getStoredSchedules);
+  const [isLoading, setIsLoading] = useState(() => getStoredSchedules().length === 0);
   const [viewMode, setViewMode] = useState<'week' | 'calendar' | 'timeline'>('week');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [currentWeekDate, setCurrentWeekDate] = useState(new Date());
@@ -130,16 +128,11 @@ export default function SchedulePage() {
 
   useEffect(() => { 
     // Khôi phục cache lịch trình tức thì trong 0ms khi client mount
-    try {
-      const raw = localStorage.getItem(SCHEDULES_CACHE_KEY);
-      if (raw) {
-        const items = JSON.parse(raw);
-        if (Array.isArray(items) && items.length > 0) {
-          setSchedules(items);
-          setIsLoading(false);
-        }
-      }
-    } catch {}
+    const stored = getStoredSchedules();
+    if (stored.length > 0) {
+      setSchedules(stored);
+      setIsLoading(false);
+    }
 
     let ignore = false;
 

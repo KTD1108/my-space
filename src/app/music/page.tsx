@@ -27,23 +27,21 @@ function formatTime(seconds: number): string {
 
 const SONGS_CACHE_KEY = 'myspace_songs_cache_v2';
 
+function getStoredSongs(): SongItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('myspace_songs_cache_v2')
+      || localStorage.getItem('myspace_songs_cache_v1')
+      || sessionStorage.getItem('myspace_songs_cache_v1');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
 export default function MusicPage() {
-  const [songs, setSongs] = useState<SongItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(SONGS_CACHE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch {}
-    }
-    return [];
-  });
+  const [songs, setSongs] = useState<SongItem[]>(getStoredSongs);
   const [uploading, setUploading] = useState(false);
-  const [isLoading, setIsLoading] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !localStorage.getItem(SONGS_CACHE_KEY);
-    }
-    return true;
-  });
+  const [isLoading, setIsLoading] = useState(() => getStoredSongs().length === 0);
 
   // Trạng thái cho form thêm SoundCloud
   const [isAddingLink, setIsAddingLink] = useState(false);
@@ -93,17 +91,12 @@ export default function MusicPage() {
 
   useEffect(() => {
     // Khôi phục cache tức thì trong 0ms khi client mount
-    try {
-      const raw = localStorage.getItem(SONGS_CACHE_KEY);
-      if (raw) {
-        const items = JSON.parse(raw);
-        if (Array.isArray(items) && items.length > 0) {
-          setSongs(items);
-          setPlaylist(items);
-          setIsLoading(false);
-        }
-      }
-    } catch {}
+    const stored = getStoredSongs();
+    if (stored.length > 0) {
+      setSongs(stored);
+      setPlaylist(stored);
+      setIsLoading(false);
+    }
     fetchSongs();
   }, []);
 

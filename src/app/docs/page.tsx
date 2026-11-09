@@ -57,25 +57,31 @@ interface CategoryItem {
 const DOCS_CACHE_KEY = 'myspace_docs_cache_v2';
 const CATEGORIES_CACHE_KEY = 'myspace_categories_cache_v2';
 
+function getStoredDocs(): DocItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('myspace_docs_cache_v2')
+      || localStorage.getItem('myspace_docs_cache_v1')
+      || sessionStorage.getItem('myspace_docs_cache_v1');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
+function getStoredCategories(): CategoryItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('myspace_categories_cache_v2')
+      || localStorage.getItem('myspace_categories_cache_v1')
+      || sessionStorage.getItem('myspace_categories_cache_v1');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
 export default function DocsPage() {
-  const [docs, setDocs] = useState<DocItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(DOCS_CACHE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch {}
-    }
-    return [];
-  });
-  const [categories, setCategories] = useState<CategoryItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(CATEGORIES_CACHE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch {}
-    }
-    return [];
-  });
+  const [docs, setDocs] = useState<DocItem[]>(getStoredDocs);
+  const [categories, setCategories] = useState<CategoryItem[]>(getStoredCategories);
   const [uploading, setUploading] = useState(false);
   
   const [activeCategory, setActiveCategory] = useState('Tất cả');
@@ -113,32 +119,19 @@ export default function DocsPage() {
     setIsAIStudioOpen(true);
   };
 
-  const [isLoading, setIsLoading] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !localStorage.getItem(DOCS_CACHE_KEY);
-    }
-    return true;
-  });
+  const [isLoading, setIsLoading] = useState(() => getStoredDocs().length === 0);
 
   useEffect(() => { 
     // Khôi phục cache tài liệu & chuyên mục tức thì trong 0ms khi client mount
-    try {
-      const rawDocs = localStorage.getItem(DOCS_CACHE_KEY);
-      if (rawDocs) {
-        const items = JSON.parse(rawDocs);
-        if (Array.isArray(items) && items.length > 0) {
-          setDocs(items);
-          setIsLoading(false);
-        }
-      }
-      const rawCats = localStorage.getItem(CATEGORIES_CACHE_KEY);
-      if (rawCats) {
-        const cats = JSON.parse(rawCats);
-        if (Array.isArray(cats) && cats.length > 0) {
-          setCategories(cats);
-        }
-      }
-    } catch {}
+    const storedD = getStoredDocs();
+    if (storedD.length > 0) {
+      setDocs(storedD);
+      setIsLoading(false);
+    }
+    const storedC = getStoredCategories();
+    if (storedC.length > 0) {
+      setCategories(storedC);
+    }
 
     fetchDocs(); 
     fetchCategories();

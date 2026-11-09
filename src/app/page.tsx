@@ -19,17 +19,20 @@ import Link from 'next/link';
 
 const CACHE_KEY = 'myspace_dashboard_cache_v3';
 
+function getStoredDashboardData(): HomeDashboardData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('myspace_dashboard_cache_v3')
+      || localStorage.getItem('myspace_dashboard_cache_v2')
+      || sessionStorage.getItem('myspace_dashboard_cache_v2');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
 export default function Home() {
-  // Lấy dữ liệu đệm từ localStorage (nếu có) để vẽ màn hình TỨC THÌ trong 0ms kể cả khi mở tab mới hoặc tắt trình duyệt
-  const [cachedData] = useState<HomeDashboardData | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(CACHE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch {}
-    }
-    return null;
-  });
+  // Lấy dữ liệu đệm từ mọi phiên bản cache để vẽ màn hình TỨC THÌ trong 0ms không đợi server
+  const [cachedData] = useState<HomeDashboardData | null>(getStoredDashboardData);
 
   const [stats, setStats] = useState(cachedData?.stats || { docs: 0, songs: 0, photos: 0 });
   const [profile, setProfile] = useState<{name: string} | null>(cachedData?.profile || null);
@@ -54,18 +57,15 @@ export default function Home() {
 
   useEffect(() => {
     // 1. NGAY LẬP TỨC khôi phục cache trên client trong 0ms (giải quyết triệt để độ trễ SSR):
-    try {
-      const raw = localStorage.getItem(CACHE_KEY);
-      if (raw) {
-        const cached = JSON.parse(raw);
-        if (cached.stats) setStats(cached.stats);
-        if (cached.profile) setProfile(cached.profile);
-        if (cached.todaySchedules) setTodaySchedules(cached.todaySchedules);
-        if (cached.recentPhoto) setRecentPhoto(cached.recentPhoto);
-        if (cached.focusStats) setFocusStats(cached.focusStats);
-        setLoading(false);
-      }
-    } catch {}
+    const cached = getStoredDashboardData();
+    if (cached) {
+      if (cached.stats) setStats(cached.stats);
+      if (cached.profile) setProfile(cached.profile);
+      if (cached.todaySchedules) setTodaySchedules(cached.todaySchedules);
+      if (cached.recentPhoto) setRecentPhoto(cached.recentPhoto);
+      if (cached.focusStats) setFocusStats(cached.focusStats);
+      setLoading(false);
+    }
 
     let isMounted = true;
 

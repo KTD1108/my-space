@@ -28,19 +28,22 @@ import AIChatDrawer from "@/components/AIChatDrawer";
 import { MusicProvider } from "@/context/MusicContext";
 import GlobalMusicPlayer from "@/components/GlobalMusicPlayer";
 
+function getStoredProfile() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('myspace_profile_cache_v2')
+      || localStorage.getItem('myspace_profile_cache_v1')
+      || sessionStorage.getItem('myspace_profile_cache_v1');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [profile, setProfile] = useState<{name: string, avatar?: string | null, email?: string} | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem('myspace_profile_cache_v2');
-        if (raw) return JSON.parse(raw);
-      } catch {}
-    }
-    return null;
-  });
+  const [profile, setProfile] = useState<{name: string, avatar?: string | null, email?: string} | null>(getStoredProfile);
   const [isDark, setIsDark] = useState(false);
 
   // Khởi tạo theme (Dark/Light) từ localStorage hoặc system preference
@@ -72,13 +75,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const hasLoadedProfileRef = useRef(false);
 
   useEffect(() => {
-    // 1. Khôi phục Profile ngay lập tức từ localStorage (0ms)
-    try {
-      const raw = localStorage.getItem('myspace_profile_cache_v2');
-      if (raw) {
-        setProfile(JSON.parse(raw));
-      }
-    } catch {}
+    // 1. Khôi phục Profile ngay lập tức từ cache (0ms)
+    const stored = getStoredProfile();
+    if (stored) setProfile(stored);
 
     // 2. Chỉ đồng bộ hồ sơ 1 lần duy nhất khi ứng dụng mở, không gọi lại ở mỗi lần đổi tab
     if (isAuthRoute || hasLoadedProfileRef.current) return;

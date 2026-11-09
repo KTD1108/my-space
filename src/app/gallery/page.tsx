@@ -33,25 +33,31 @@ import {
 const PHOTOS_CACHE_KEY = 'myspace_photos_cache_v2';
 const ALBUMS_CACHE_KEY = 'myspace_albums_cache_v2';
 
+function getStoredPhotos(): any[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('myspace_photos_cache_v2')
+      || localStorage.getItem('myspace_photos_cache_v1')
+      || sessionStorage.getItem('myspace_photos_cache_v1');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
+function getStoredAlbums(): any[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('myspace_albums_cache_v2')
+      || localStorage.getItem('myspace_albums_cache_v1')
+      || sessionStorage.getItem('myspace_albums_cache_v1');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return [];
+}
+
 export default function GalleryPage() {
-  const [photos, setPhotos] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(PHOTOS_CACHE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch {}
-    }
-    return [];
-  });
-  const [albums, setAlbums] = useState<any[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem(ALBUMS_CACHE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch {}
-    }
-    return [];
-  });
+  const [photos, setPhotos] = useState<any[]>(getStoredPhotos);
+  const [albums, setAlbums] = useState<any[]>(getStoredAlbums);
   const [uploading, setUploading] = useState(false);
   
   const [activeAlbum, setActiveAlbum] = useState('Tất cả');
@@ -70,32 +76,19 @@ export default function GalleryPage() {
   const [isBulkMoving, setIsBulkMoving] = useState(false);
   const [targetBulkAlbumMove, setTargetBulkAlbumMove] = useState('Chung');
 
-  const [isLoading, setIsLoading] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return !localStorage.getItem(PHOTOS_CACHE_KEY);
-    }
-    return true;
-  });
+  const [isLoading, setIsLoading] = useState(() => getStoredPhotos().length === 0);
 
   useEffect(() => { 
     // Khôi phục cache ảnh & album tức thì trong 0ms khi client mount
-    try {
-      const rawPhotos = localStorage.getItem(PHOTOS_CACHE_KEY);
-      if (rawPhotos) {
-        const items = JSON.parse(rawPhotos);
-        if (Array.isArray(items) && items.length > 0) {
-          setPhotos(items);
-          setIsLoading(false);
-        }
-      }
-      const rawAlbums = localStorage.getItem(ALBUMS_CACHE_KEY);
-      if (rawAlbums) {
-        const albumsList = JSON.parse(rawAlbums);
-        if (Array.isArray(albumsList) && albumsList.length > 0) {
-          setAlbums(albumsList);
-        }
-      }
-    } catch {}
+    const storedP = getStoredPhotos();
+    if (storedP.length > 0) {
+      setPhotos(storedP);
+      setIsLoading(false);
+    }
+    const storedA = getStoredAlbums();
+    if (storedA.length > 0) {
+      setAlbums(storedA);
+    }
     fetchPhotos(); 
     fetchAlbums();
   }, []);
