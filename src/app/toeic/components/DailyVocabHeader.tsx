@@ -8,6 +8,8 @@ interface DailyVocabHeaderProps {
   onDateChange: (newDate: string) => void;
   topic: string;
   modelUsed?: string;
+  wordCount: number;
+  onWordCountChange: (count: number) => void;
   streakCount: number;
   masteredCount: number;
   totalWords: number;
@@ -22,6 +24,8 @@ export function DailyVocabHeader({
   onDateChange,
   topic,
   modelUsed,
+  wordCount,
+  onWordCountChange,
   streakCount,
   masteredCount,
   totalWords,
@@ -108,6 +112,26 @@ export function DailyVocabHeader({
               onChange={(e) => e.target.value && onDateChange(e.target.value)}
               className="bg-transparent border-none text-xs font-medium focus:outline-hidden cursor-pointer"
             />
+          </div>
+
+          {/* Word Count Selector */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs">
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              Số từ:
+            </span>
+            <select
+              value={wordCount}
+              onChange={(e) => onWordCountChange(Number(e.target.value))}
+              disabled={isLoading}
+              title="Chọn số lượng từ muốn học"
+              className="bg-transparent border-none text-xs font-bold text-blue-600 dark:text-blue-400 focus:outline-hidden cursor-pointer"
+            >
+              <option value={4} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">4 từ</option>
+              <option value={6} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">6 từ (chuẩn)</option>
+              <option value={8} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">8 từ</option>
+              <option value={10} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">10 từ</option>
+              <option value={12} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">12 từ</option>
+            </select>
           </div>
 
           {/* Re-generate / Change topic button */}

@@ -79,13 +79,15 @@ function selectTopicForDate(dateStr: string): string {
 
 export async function getDailyToeicVocabAI(
   dateStr: string,
-  customTopic?: string
+  customTopic?: string,
+  wordCount: number = 6
 ): Promise<{ success: boolean; data?: DailyVocabSet; error?: string }> {
   try {
+    const validCount = Math.max(3, Math.min(15, Number(wordCount) || 6));
     const chosenTopic = customTopic?.trim() || selectTopicForDate(dateStr);
 
     const prompt = `Bạn là Chuyên gia Khảo thí và Giảng viên luyện thi TOEIC hàng đầu (ETS Certified Master).
-Nhiệm vụ: Hãy tạo một bộ gồm chính xác 6 từ vựng TOEIC cốt lõi (Band điểm mục tiêu 650 - 850+) cho ngày: ${dateStr}.
+Nhiệm vụ: Hãy tạo một bộ gồm chính xác ${validCount} từ vựng TOEIC cốt lõi (Band điểm mục tiêu 650 - 850+) cho ngày: ${dateStr}.
 Chủ đề bài học: "${chosenTopic}".
 
 YÊU CẦU BẮT BUỘC CHO MỖI TỪ VỰNG:
@@ -162,19 +164,21 @@ TRẢ VỀ ĐÚNG ĐỊNH DẠNG JSON THEO CẤU TRÚC SAU (không trả về ma
 }
 
 export async function generateToeicQuizAI(
-  words: ToeicWord[]
+  words: ToeicWord[],
+  questionCount?: number
 ): Promise<{ success: boolean; quiz?: ToeicQuizQuestion[]; error?: string }> {
   try {
     if (!words || words.length === 0) {
       return { success: false, error: "Danh sách từ vựng trống, không thể tạo bài kiểm tra." };
     }
 
+    const qCount = Math.max(2, Math.min(words.length, questionCount || 5));
     const wordsSummary = words.map(w => `- ${w.word} (${w.partOfSpeech}): ${w.meaningVi}`).join('\n');
 
     const prompt = `Bạn là Chuyên gia Khảo thí TOEIC. Dựa trên danh sách ${words.length} từ vựng sau đây:
 ${wordsSummary}
 
-Hãy biên soạn 5 câu hỏi trắc nghiệm chuẩn TOEIC Part 5 (Incomplete Sentences / Điền từ vào chỗ trống).
+Hãy biên soạn ${qCount} câu hỏi trắc nghiệm chuẩn TOEIC Part 5 (Incomplete Sentences / Điền từ vào chỗ trống).
 Mỗi câu hỏi phải:
 - Kiểm tra trực tiếp một trong các từ vựng trên (hoặc dạng từ word family của nó).
 - Có ngữ cảnh môi trường công sở, kinh doanh quốc tế sát với format đề thi thật.

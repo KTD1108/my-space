@@ -11,6 +11,7 @@ import { Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
 
 const CACHE_STORAGE_KEY = 'myspace_toeic_daily_cache_v1';
 const PROGRESS_STORAGE_KEY = 'myspace_toeic_progress_v1';
+const WORD_COUNT_KEY = 'myspace_toeic_word_count_v1';
 
 function getTodayString(): string {
   return new Date().toISOString().split('T')[0];
@@ -19,6 +20,7 @@ function getTodayString(): string {
 export default function ToeicDailyPage() {
   const [currentDate, setCurrentDate] = useState<string>(getTodayString);
   const [vocabSet, setVocabSet] = useState<DailyVocabSet | null>(null);
+  const [wordCount, setWordCount] = useState<number>(6);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,13 +37,20 @@ export default function ToeicDailyPage() {
     quizScores: {},
   });
 
-  // Load progress from localStorage
+  // Load progress and preferred word count from localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem(PROGRESS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         setProgress(parsed);
+      }
+      const savedCount = localStorage.getItem(WORD_COUNT_KEY);
+      if (savedCount) {
+        const count = Number(savedCount);
+        if ([4, 6, 8, 10, 12].includes(count)) {
+          setWordCount(count);
+        }
       }
     } catch (e) {
       console.warn("Lỗi đọc tiến độ học từ vựng:", e);
@@ -70,9 +79,10 @@ export default function ToeicDailyPage() {
   }, []);
 
   // Load words for selected date (cache-first)
-  const loadDailyWords = useCallback(async (dateStr: string, forceRefresh = false) => {
+  const loadDailyWords = useCallback(async (dateStr: string, forceRefresh = false, countOverride?: number) => {
     setIsLoading(true);
     setError(null);
+    const targetCount = countOverride || wordCount;
 
     try {
       if (!forceRefresh) {
@@ -88,7 +98,7 @@ export default function ToeicDailyPage() {
       }
 
       // Fetch from Gemini AI
-      const res = await getDailyToeicVocabAI(dateStr);
+      const res = await getDailyToeicVocabAI(dateStr, undefined, targetCount);
       if (!res.success || !res.data) {
         throw new Error(res.error || "Không thể sinh từ vựng TOEIC bằng AI.");
       }
@@ -110,7 +120,15 @@ export default function ToeicDailyPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [recordStudyActivity]);
+  }, [wordCount, recordStudyActivity]);
+
+  const handleWordCountChange = (newCount: number) => {
+    setWordCount(newCount);
+    try {
+      localStorage.setItem(WORD_COUNT_KEY, String(newCount));
+    } catch {}
+    loadDailyWords(currentDate, true, newCount);
+  };
 
   // Load initial words
   useEffect(() => {
@@ -192,6 +210,8 @@ export default function ToeicDailyPage() {
         onDateChange={setCurrentDate}
         topic={vocabSet?.topic || ''}
         modelUsed={vocabSet?.modelUsed}
+        wordCount={wordCount}
+        onWordCountChange={handleWordCountChange}
         streakCount={progress.streakCount}
         masteredCount={masteredInCurrentSet}
         totalWords={vocabSet?.words.length || 0}
@@ -238,7 +258,7 @@ export default function ToeicDailyPage() {
           <div className="flex items-center justify-between px-1">
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Sparkles size={16} className="text-blue-500" />
-              <span>Danh sách 6 từ vựng trọng tâm hôm nay</span>
+              <span>Danh sách {vocabSet.words.length} từ vựng trọng tâm hôm nay</span>
             </h2>
             <span className="text-xs text-slate-500">
               Nhấn loa để nghe phát âm giọng Mỹ bản xứ
